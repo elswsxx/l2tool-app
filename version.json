@@ -1,4 +1,4 @@
 {
-  "version": "1.2.0",
-  "notes": "• Puntaje simplificado: ahora es el EXP/h relativo al mejor spot (se quitó el slider EXP/Adena que confundía cuando no registrabas adena).\n• Nuevo icono de la app."
+  "version": "1.3.0",
+  "notes": "• Nueva sección Configuración con sincronización a Google Drive de doble vía (Respaldar y Restaurar).\n• Nuevo diseño: color azul marino e iconos vectoriales (sin emojis).\n• Puntaje simplificado (EXP/h relativo al mejor spot).\n• Versión para Ubuntu/Linux disponible."
 }

@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>L2 Toolkit</title>
+<style>
+  :root{
+    --bg:#0b0d12; --bg2:#0f1219; --panel:#141824; --panel2:#1a1f2e;
+    --border:#232a3b; --border2:#2d3550;
+    --acc:#1f3a5f; --acc2:#5b8fc7; --sky:#0ea5e9; --sky2:#38bdf8;
+    --green:#22c55e; --green2:#4ade80; --red:#ef4444; --red2:#f87171;
+    --text:#e7eaf0; --muted:#8b94a7; --head:#a9c7e8;
+    --radius:14px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif}
+  ::selection{background:rgba(74,127,181,.35)}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);display:flex;overflow:hidden}
+
+  /* ============ SIDEBAR ============ */
+  .sidebar{width:230px;min-width:230px;background:var(--bg2);border-right:1px solid var(--border);
+    display:flex;flex-direction:column;padding:22px 14px}
+  .logo{display:flex;align-items:center;gap:12px;padding:0 8px 22px}
+  .logo-badge{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(135deg,#1f3a5f,#356ea5);font-weight:800;font-size:16px;color:#fff;
+    box-shadow:0 6px 18px rgba(74,127,181,.35)}
+  .logo h1{font-size:16px;font-weight:700}
+  .logo p{font-size:11px;color:var(--muted)}
+  .nav{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .nav-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;
+    color:var(--muted);cursor:pointer;font-size:14px;font-weight:600;transition:all .18s ease;border:1px solid transparent}
+  .nav-item svg{width:19px;height:19px;flex:none}
+  .nav-item:hover{background:var(--panel);color:var(--text)}
+  .nav-item.active{background:linear-gradient(135deg,rgba(74,127,181,.18),rgba(74,127,181,.12));
+    color:#fff;border-color:rgba(74,127,181,.4)}
+  .nav-item.active svg{color:var(--acc2)}
+  .sidebar .foot{margin-top:auto;padding:10px 8px;font-size:11px;color:var(--muted)}
+
+  /* ============ MAIN ============ */
+  .main{flex:1;overflow-y:auto;padding:28px 32px}
+  .page{display:none;animation:fadeIn .25s ease}
+  .page.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .page-head{margin-bottom:22px}
+  .page-head h2{font-size:22px;font-weight:700}
+  .page-head p{color:var(--muted);font-size:13px;margin-top:3px}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;margin-bottom:18px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  .card h3{font-size:13px;font-weight:700;color:var(--head);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .card h3 svg{width:15px;height:15px;flex:none}
+  /* iconos dentro de botones */
+  .btn>svg{width:15px;height:15px;flex:none}
+  .ico-star{width:11px;height:11px;vertical-align:-1px;margin-right:3px}
+
+  /* form */
+  .form-grid{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:11.5px;font-weight:600;color:var(--muted)}
+  .field input,.field select{background:var(--bg);border:1px solid var(--border2);border-radius:10px;
+    color:var(--text);padding:10px 13px;font-size:14px;outline:none;transition:all .15s;width:100%;cursor:pointer}
+  .field input{cursor:text}
+  .field input:focus,.field select:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(74,127,181,.2)}
+  .field select option{background:var(--panel2);color:var(--text)}
+  .field input::placeholder{color:#4b5468}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:10px}
+
+  /* buttons */
+  .btn{border:none;border-radius:10px;padding:10px 18px;font-size:13.5px;font-weight:700;
+    cursor:pointer;transition:all .16s ease;display:inline-flex;align-items:center;gap:7px;color:#fff}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:linear-gradient(135deg,#1f3a5f,#356ea5);box-shadow:0 4px 14px rgba(74,127,181,.35)}
+  .btn-primary:hover{filter:brightness(1.15);box-shadow:0 6px 20px rgba(74,127,181,.5)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}
+  .btn-ghost:hover{color:var(--text);border-color:var(--acc);background:rgba(74,127,181,.08)}
+  .btn-icon{background:transparent;border:1px solid transparent;color:var(--muted);
+    border-radius:9px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;transition:all .15s}
+  .btn-icon:hover{background:var(--panel2);color:var(--text);border-color:var(--border2)}
+  .btn-icon.danger:hover{background:rgba(239,68,68,.12);color:var(--red2);border-color:rgba(239,68,68,.4)}
+  .btn-icon svg{width:16px;height:16px}
+
+  /* slider */
+  .weight-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .weight-row .lbl{font-size:13px;color:var(--muted);font-weight:600}
+  .weight-badge{background:rgba(74,127,181,.15);border:1px solid rgba(74,127,181,.35);
+    color:var(--head);border-radius:99px;padding:5px 14px;font-size:12.5px;font-weight:700}
+  input[type=range]{-webkit-appearance:none;width:240px;height:6px;border-radius:99px;
+    background:linear-gradient(90deg,#f59e0b var(--pct,30%),var(--acc) var(--pct,30%));outline:none;cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;
+    background:#fff;border:3px solid var(--acc);box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .1s}
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+
+  /* table */
+  .table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:940px}
+  thead th{background:var(--panel2);color:var(--muted);font-size:11px;text-transform:uppercase;
+    letter-spacing:.05em;padding:11px 14px;text-align:right;cursor:pointer;user-select:none;
+    white-space:nowrap;transition:color .15s;position:sticky;top:0}
+  thead th:first-child{text-align:left}
+  thead th:hover{color:var(--text)}
+  thead th.sorted{color:var(--acc2)}
+  tbody td{padding:12px 14px;text-align:right;border-top:1px solid var(--border);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody td:first-child{text-align:left;font-weight:600}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:rgba(74,127,181,.06)}
+  tbody tr.best{background:linear-gradient(90deg,rgba(34,197,94,.12),transparent 60%)}
+  tbody tr.best td:first-child{color:var(--green2)}
+  .badge-best{background:rgba(34,197,94,.15);color:var(--green2);border:1px solid rgba(34,197,94,.35);
+    font-size:10.5px;font-weight:700;border-radius:99px;padding:2.5px 9px;margin-left:8px}
+  .score-pill{display:inline-block;min-width:52px;text-align:center;border-radius:99px;
+    padding:4px 10px;font-weight:700;font-size:12.5px}
+  .score-hi{background:rgba(34,197,94,.15);color:var(--green2)}
+  .score-mid{background:rgba(74,127,181,.15);color:var(--acc2)}
+  .score-lo{background:rgba(139,148,167,.12);color:var(--muted)}
+  .conf-a{background:rgba(34,197,94,.15);color:var(--green2)}
+  .conf-b{background:rgba(74,127,181,.15);color:var(--acc2)}
+  .conf-c{background:rgba(245,158,11,.15);color:#fbbf24}
+  .conf-d{background:rgba(239,68,68,.15);color:var(--red2)}
+  .table-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap;gap:10px}
+  .table-foot .count{font-size:12.5px;color:var(--muted)}
+  .empty{padding:46px 20px;text-align:center}
+  .empty h4{font-size:15px;margin-bottom:5px}
+  .empty p{color:var(--muted);font-size:13px}
+
+  /* account cards */
+  .acc-card{display:flex;align-items:center;gap:16px;background:var(--panel);
+    border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;
+    transition:all .18s ease}
+  .acc-card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 10px 26px rgba(0,0,0,.35)}
+  .avatar{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;flex:none;
+    background:linear-gradient(135deg,#1f3a5f,#356ea5);color:#fff;font-weight:800;font-size:18px;
+    box-shadow:0 4px 12px rgba(74,127,181,.3)}
+  .acc-info{min-width:130px}
+  .acc-info .alias{font-weight:700;font-size:15px}
+  .acc-info .sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .chips{display:flex;gap:10px;flex:1;justify-content:flex-end;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:8px;border-radius:11px;padding:9px 16px;
+    font-size:13.5px;font-weight:700;cursor:pointer;transition:all .16s ease;color:#fff;
+    border:none;font-variant-numeric:tabular-nums}
+  .chip svg{width:14px;height:14px;opacity:.8}
+  .chip-user{background:linear-gradient(135deg,#0284c7,#0ea5e9)}
+  .chip-user:hover{filter:brightness(1.18);box-shadow:0 4px 14px rgba(14,165,233,.4)}
+  .chip-pass{background:linear-gradient(135deg,#1f3a5f,#356ea5)}
+  .chip-pass:hover{filter:brightness(1.15);box-shadow:0 4px 14px rgba(74,127,181,.4)}
+  .chip.copied{background:linear-gradient(135deg,#16a34a,#22c55e)!important}
+  .chip:active{transform:scale(.96)}
+  .acc-actions{display:flex;gap:4px;margin-left:6px}
+
+  /* toast */
+  .toast{position:fixed;bottom:26px;right:26px;background:var(--panel2);color:var(--text);
+    border:1px solid var(--border2);border-left:3px solid var(--green);border-radius:12px;
+    padding:13px 18px;font-size:13.5px;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.5);
+    opacity:0;transform:translateY(12px);transition:all .25s ease;pointer-events:none;z-index:99}
+  .toast.show{opacity:1;transform:none}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(5,7,12,.6);backdrop-filter:blur(3px);
+    display:none;place-items:center;z-index:50}
+  .overlay.show{display:grid}
+  .modal{background:var(--panel);border:1px solid var(--border2);border-radius:16px;
+    padding:26px;width:380px;max-width:90vw;box-shadow:0 24px 60px rgba(0,0,0,.6);
+    animation:pop .2s ease}
+  @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+  .modal h4{font-size:16px;margin-bottom:8px}
+  .modal p{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:20px}
+  .modal .row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .btn-danger{background:linear-gradient(135deg,#dc2626,#ef4444)}
+  .btn-danger:hover{filter:brightness(1.15);box-shadow:0 4px 14px rgba(239,68,68,.4)}
+
+  /* level calculator */
+  .lvl-result{display:flex;gap:18px;flex-wrap:wrap}
+  .lvl-box{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--border2);
+    border-radius:12px;padding:18px 20px}
+  .lvl-box .cap{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:6px}
+  .lvl-box .big{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+  .lvl-box .big.accent{background:linear-gradient(135deg,#5b8fc7,#9fc4e6);
+    -webkit-background-clip:text;background-clip:text;color:transparent}
+  .lvl-box .sub{font-size:12px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+  .progress{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden;
+    border:1px solid var(--border);margin-top:10px}
+  .progress .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#1f3a5f,#356ea5);
+    transition:width .4s ease;box-shadow:0 0 10px rgba(74,127,181,.5)}
+  .time-pill{display:inline-block;border-radius:99px;padding:4px 12px;font-weight:700;
+    font-size:12.5px;background:rgba(74,127,181,.15);color:var(--acc2)}
+  tbody tr.best .time-pill{background:rgba(34,197,94,.15);color:var(--green2)}
+  /* timer */
+  .timer-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px;
+    padding:12px 16px;background:var(--bg);border:1px solid var(--border2);border-radius:12px}
+  .timer-display{font-family:Consolas,'Cascadia Mono',monospace;font-size:28px;font-weight:700;
+    font-variant-numeric:tabular-nums;color:var(--text);min-width:96px;letter-spacing:.02em}
+  .timer-display.running{color:var(--acc2)}
+  .timer-display.done{color:var(--green2);text-shadow:0 0 12px rgba(34,197,94,.4)}
+
+  /* toggle switch */
+  .toggle{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;
+    color:var(--muted);cursor:pointer;user-select:none}
+  .toggle input{display:none}
+  .toggle .track{width:36px;height:20px;border-radius:99px;background:var(--panel2);
+    border:1px solid var(--border2);position:relative;transition:all .2s;flex:none}
+  .toggle .knob{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:var(--muted);transition:all .2s}
+  .toggle input:checked+.track{background:linear-gradient(135deg,#1f3a5f,#356ea5);border-color:var(--acc)}
+  .toggle input:checked+.track .knob{left:18px;background:#fff}
+  .runs-badge{background:rgba(74,127,181,.15);color:var(--acc2);border:1px solid rgba(74,127,181,.35);
+    font-size:10.5px;font-weight:700;border-radius:99px;padding:2.5px 9px;margin-left:8px}
+
+  .calib-item{display:inline-flex;align-items:center;gap:8px;background:rgba(34,197,94,.1);
+    border:1px solid rgba(34,197,94,.35);border-radius:99px;padding:6px 8px 6px 14px;
+    margin:6px 8px 0 0;font-size:12.5px;font-weight:700;color:var(--green2)}
+  .calib-item button{background:none;border:none;color:var(--green2);cursor:pointer;
+    font-size:14px;line-height:1;padding:2px 6px;border-radius:99px;opacity:.7;transition:all .15s}
+  .calib-item button:hover{opacity:1;background:rgba(239,68,68,.2);color:var(--red2)}
+
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;border:2px solid var(--bg)}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-badge">L2</div>
+    <div><h1>L2 Toolkit</h1><p>Lineage 2</p></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-item active" data-page="calc">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Calculadora EXP
+    </div>
+    <div class="nav-item" data-page="lvl">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+      Calculadora de nivel
+    </div>
+    <div class="nav-item" data-page="eco">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v10m-2.5-2.2c.5.7 1.5 1.2 2.5 1.2 1.6 0 2.8-.8 2.8-2s-1.2-1.7-2.8-2-2.8-.8-2.8-2 1.2-2 2.8-2c1 0 2 .5 2.5 1.2"/></svg>
+      Economía
+    </div>
+    <div class="nav-item" data-page="acc">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      Cuentas
+    </div>
+    <div class="nav-item" data-page="config">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      Configuración
+    </div>
+  </nav>
+  <div id="update-banner" style="display:none;margin:0 4px 10px;padding:12px 14px;border-radius:12px;
+       background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(74,127,181,.1));
+       border:1px solid rgba(34,197,94,.4);cursor:pointer" onclick="openUpdate()">
+    <div style="font-size:12.5px;font-weight:700;color:var(--green2);display:flex;align-items:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;flex:none"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>Actualización disponible</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:3px" id="update-txt"></div>
+  </div>
+  <div class="foot" id="backup-foot">Datos guardados localmente<br>en %APPDATA%</div>
+  <div class="foot" id="ver-foot" style="margin-top:6px;padding-top:0"></div>
+</aside>
+
+<main class="main">
+
+  <!-- ============ CALCULADORA ============ -->
+  <section class="page active" id="page-calc">
+    <div class="page-head">
+      <h2>Calculadora de EXP</h2>
+      <p>Registra tus bufiadas por spot y descubre dónde conviene farmear</p>
+    </div>
+
+    <div class="card">
+      <h3 id="spot-form-title">Nuevo spot</h3>
+      <div class="timer-bar">
+        <span class="timer-display" id="timer-disp">00:00</span>
+        <button class="btn btn-primary" id="timer-btn" onclick="timerToggle()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Iniciar bufiada</button>
+        <button class="btn btn-ghost" id="timer-cancel" onclick="timerCancel()" style="display:none">Cancelar</button>
+        <span class="hint" style="margin:0" id="timer-hint">Dale play, ve a farmear y al volver detenlo: el tiempo se registra solo. A los 20 min te aviso.</span>
+      </div>
+      <div class="form-grid">
+        <div class="field" style="flex:2;min-width:170px"><label>Lugar (spot)</label><input id="f-spot" placeholder="Ej: Cementerio"></div>
+        <div class="field" style="width:90px"><label>PJs en party</label><input id="f-party" value="9"></div>
+        <div class="field" style="width:100px"><label>Tiempo (min)</label><input id="f-min" value="20"></div>
+        <div class="field" style="flex:1;min-width:130px"><label>EXP ganada (tu PJ)</label><input id="f-exp" placeholder="1.5kk"></div>
+        <div class="field" style="flex:1;min-width:130px"><label>Adena ganada (tu PJ)</label><input id="f-adena" placeholder="500k"></div>
+        <button class="btn btn-primary" id="btn-spot-add" onclick="spotSubmit()">Agregar spot</button>
+        <button class="btn btn-ghost" onclick="spotClear()">Limpiar</button>
+      </div>
+      <div class="hint">EXP y adena = lo que ganó <b>tu PJ principal</b> (no se divide entre la party) · acepta <b>500k</b>, <b>1.5kk</b>, <b>2b</b> · 20 min = 1 bufiada</div>
+    </div>
+
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">Tus spots</h3>
+        <label class="toggle">
+          <input type="checkbox" id="group-toggle" checked onchange="onGroupToggle()">
+          <span class="track"><span class="knob"></span></span>
+          Agrupar mediciones del mismo spot
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr id="thead-row"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="spots-empty" style="display:none">
+          <h4>Sin spots todavía</h4><p>Agrega tu primera bufiada con el formulario de arriba.</p>
+        </div>
+      </div>
+      <div class="table-foot">
+        <span class="count" id="spot-count"></span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="exportSpots()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M19 12l-7 7-7-7"/></svg>Exportar copia</button>
+          <button class="btn btn-ghost" onclick="importSpots()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>Importar copia</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CALCULADORA DE NIVEL ============ -->
+  <section class="page" id="page-lvl">
+    <div class="page-head">
+      <h2>Calculadora de nivel</h2>
+      <p>Cuánta EXP te falta y cuánto tardarás en cada spot · elige tu crónica (Classic o Interlude)</p>
+    </div>
+
+    <div class="card">
+      <h3>Tu personaje</h3>
+      <div class="form-grid">
+        <div class="field" style="width:150px"><label>Crónica</label>
+          <select id="l-chron" onchange="lvlNormalize()">
+            <option value="classic" selected>Classic</option>
+            <option value="interlude">Interlude</option>
+          </select>
+        </div>
+        <div class="field" style="width:120px"><label>Nivel actual</label><input id="l-cur" value="40" oninput="lvlCalc()" onchange="lvlNormalize()"></div>
+        <div class="field" style="width:120px"><label>% de EXP</label><input id="l-pct" value="0" oninput="lvlCalc()" onchange="lvlNormalize()"></div>
+        <div class="field" style="width:120px"><label>Nivel objetivo</label><input id="l-target" value="41" oninput="lvlCalc()" onchange="lvlNormalize()"></div>
+      </div>
+      <div class="hint">El % es el que ves en la barra de EXP del juego (0 a 99.9) · si un valor queda fuera de rango, se ajusta solo al salir del campo</div>
+    </div>
+
+    <div class="card">
+      <h3>Calibrar con una bufiada real</h3>
+      <div class="form-grid">
+        <div class="field" style="width:100px"><label>Nivel</label><input id="c-lvl" value="80"></div>
+        <div class="field" style="width:130px"><label>% inicial</label><input id="c-i" placeholder="25.6658"></div>
+        <div class="field" style="width:130px"><label>% final</label><input id="c-f" placeholder="25.7298"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>EXP ganada</label><input id="c-exp" placeholder="64.475.454"></div>
+        <button class="btn btn-primary" onclick="calibApply()">Calibrar</button>
+      </div>
+      <div class="hint">Anota el % exacto antes y después de farmear y la EXP ganada: la app deduce la EXP real
+        de ese nivel en <b>tu servidor</b> y la usa en vez de la tabla genérica. Un nivel calibrado manda sobre la tabla.</div>
+      <div id="calib-list" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <div class="lvl-result">
+        <div class="lvl-box">
+          <div class="cap">EXP faltante</div>
+          <div class="big accent" id="l-missing">—</div>
+          <div class="sub" id="l-missing-sub"></div>
+        </div>
+        <div class="lvl-box">
+          <div class="cap" id="l-prog-cap">Progreso del nivel</div>
+          <div class="big" id="l-prog">—</div>
+          <div class="progress"><div class="fill" id="l-prog-fill" style="width:0%"></div></div>
+          <div class="sub" id="l-prog-sub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tiempo estimado en tus spots</h3>
+      <div class="table-wrap" id="l-plan-wrap">
+        <table id="l-plan-table">
+          <thead><tr>
+            <th style="text-align:left">Spot</th><th>EXP/h</th><th>Muestra</th>
+            <th>Bufiadas (20 min)</th><th>Tiempo</th>
+          </tr></thead>
+          <tbody id="l-plan"></tbody>
+        </table>
+        <div class="empty" id="l-plan-empty" style="display:none">
+          <h4>Sin spots con EXP registrada</h4>
+          <p>Agrega bufiadas en la Calculadora EXP para ver el plan aquí.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ECONOMIA ============ -->
+  <section class="page" id="page-eco">
+    <div class="page-head">
+      <h2>Economía · Crafteo</h2>
+      <p>Calcula el costo real de craftear, tu utilidad y qué conviene fabricar a precios de hoy</p>
+    </div>
+
+    <div class="card">
+      <h3 id="eco-form-title">Receta</h3>
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="field" style="width:210px"><label>Plantilla</label>
+          <select id="eco-tpl" onchange="ecoTemplate()">
+            <option value="">— elegir —</option>
+            <option value="bssd">Blessed Spiritshot D</option>
+            <option value="bssc">Blessed Spiritshot C</option>
+            <option value="bssa">Blessed Spiritshot A</option>
+            <option value="ss">Soulshot (ajustar cantidades)</option>
+            <option value="custom">Personalizada (vacía)</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;min-width:170px"><label>Nombre de la receta</label><input id="r-name" placeholder="Ej: BSS D" oninput="ecoCalc()"></div>
+        <div class="field" style="width:130px"><label>Unidades por craft</label><input id="r-out" value="100" oninput="ecoCalc()"></div>
+      </div>
+
+      <div style="margin-bottom:6px"><label style="font-size:11.5px;font-weight:600;color:var(--muted)">Materiales por craft</label></div>
+      <div id="mat-rows"></div>
+      <button class="btn btn-ghost" style="margin-top:4px" onclick="matAdd()">+ Agregar material</button>
+
+      <div class="form-grid" style="margin-top:14px">
+        <div class="field" style="width:170px"><label>Precio de venta (unidad)</label><input id="r-sell" placeholder="Ej: 55" oninput="ecoCalc()"></div>
+        <div class="field" style="width:150px"><label>Comisión venta %</label><input id="r-fee" value="0" oninput="ecoCalc()"></div>
+        <div class="field" style="width:170px"><label>Otros costos por craft</label><input id="r-other" value="0" oninput="ecoCalc()"></div>
+        <button class="btn btn-primary" id="eco-save-btn" onclick="ecoSave()">Guardar receta</button>
+        <button class="btn btn-ghost" onclick="ecoClear()">Nueva</button>
+      </div>
+      <div class="hint">Precios en adena · acepta 1.5k, 2kk, etc. · la comisión aplica si vendes por subasta/tienda con impuesto</div>
+    </div>
+
+    <div class="card">
+      <div class="lvl-result">
+        <div class="lvl-box"><div class="cap">Costo por craft</div><div class="big" id="e-costcraft">—</div><div class="sub" id="e-costcraft-sub"></div></div>
+        <div class="lvl-box"><div class="cap">Costo por unidad</div><div class="big" id="e-costunit">—</div><div class="sub" id="e-costunit-sub"></div></div>
+        <div class="lvl-box"><div class="cap">Utilidad por unidad</div><div class="big" id="e-profitunit">—</div><div class="sub" id="e-margin"></div></div>
+        <div class="lvl-box"><div class="cap">Utilidad por 1.000 unidades</div><div class="big" id="e-prof1000">—</div><div class="sub" id="e-profcraft"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tus recetas guardadas · ordenadas por rentabilidad</h3>
+      <div class="table-wrap">
+        <table id="eco-table" style="min-width:760px">
+          <thead><tr>
+            <th style="text-align:left">Receta</th><th>Costo/u</th><th>Venta/u</th>
+            <th>Utilidad/u</th><th>Margen</th><th>Util. por 1.000</th><th></th>
+          </tr></thead>
+          <tbody id="eco-list"></tbody>
+        </table>
+        <div class="empty" id="eco-empty" style="display:none">
+          <h4>Sin recetas guardadas</h4><p>Configura una arriba y presiona "Guardar receta".</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CUENTAS ============ -->
+  <section class="page" id="page-acc">
+    <div class="page-head">
+      <h2>Cuentas</h2>
+      <p>Haz clic sobre un usuario o contraseña para copiarlo al portapapeles</p>
+    </div>
+
+    <div class="card">
+      <h3 id="acc-form-title">Nueva cuenta</h3>
+      <div class="form-grid">
+        <div class="field" style="flex:1;min-width:150px"><label>Alias</label><input id="a-alias" placeholder="Ej: Main dagger"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Usuario</label><input id="a-user"></div>
+        <div class="field" style="flex:1;min-width:150px"><label>Contraseña</label><input id="a-pass"></div>
+        <button class="btn btn-primary" id="btn-acc-add" onclick="accSubmit()">Agregar cuenta</button>
+        <button class="btn btn-ghost" onclick="accClear()">Limpiar</button>
+      </div>
+    </div>
+
+    <div id="acc-list"></div>
+    <div class="empty card" id="acc-empty" style="display:none">
+      <h4>Aún no tienes cuentas</h4><p>Agrega una con el formulario de arriba.</p>
+    </div>
+  </section>
+
+  <!-- ============ CONFIGURACIÓN ============ -->
+  <section class="page" id="page-config">
+    <div class="page-head">
+      <h2>Configuración</h2>
+      <p>Sincroniza tus datos en la nube y gestiona la aplicación</p>
+    </div>
+
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>Respaldo y sincronización</h3>
+      <div id="sync-status" style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+           background:var(--bg);border:1px solid var(--border2);border-radius:12px;margin-bottom:14px">
+        <div id="sync-dot" style="width:12px;height:12px;border-radius:50%;background:var(--muted);flex:none"></div>
+        <div style="flex:1">
+          <div id="sync-title" style="font-weight:700;font-size:14px">Comprobando...</div>
+          <div id="sync-sub" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="cfg-connect" onclick="connectDrive()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>Conectar mi Google Drive</button>
+        <button class="btn btn-ghost" id="cfg-backup" onclick="backupNow()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>Respaldar ahora</button>
+        <button class="btn btn-ghost" id="cfg-restore" onclick="restoreCloud()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M19 12l-7 7-7-7"/></svg>Restaurar desde la nube</button>
+        <button class="btn btn-ghost" id="cfg-disconnect" onclick="disconnectDrive()" style="display:none">Desconectar</button>
+      </div>
+      <div class="hint">Conecta <b>tu</b> cuenta de Google (permiso mínimo: la app solo ve sus propios archivos).
+        <b>Respaldar</b> sube tus datos; <b>Restaurar</b> los trae de la nube y reemplaza los locales
+        (útil al cambiar de PC). También se respalda solo cada vez que guardas algo.</div>
+    </div>
+
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path stroke-linecap="round" stroke-linejoin="round" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>Tus datos</h3>
+      <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px">
+        Se guardan localmente en tu PC. Son 3 archivos: spots, cuentas y configuración
+        (calibraciones + recetas + preferencias).</p>
+      <button class="btn btn-ghost" onclick="api().open_data_folder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Abrir carpeta de datos</button>
+    </div>
+
+    <div class="card">
+      <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4M12 8h.01"/></svg>Acerca de</h3>
+      <div style="font-size:13px;color:var(--muted);line-height:1.7">
+        <div>L2 Toolkit · versión <b id="cfg-version" style="color:var(--text)">—</b></div>
+        <div id="cfg-update-line" style="margin-top:4px">Buscando actualizaciones...</div>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:12px" onclick="manualCheckUpdate()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Buscar actualizaciones</button>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h4 id="modal-title"></h4>
+    <p id="modal-msg"></p>
+    <div class="row" id="modal-btns"></div>
+  </div>
+</div>
+
+<script>
+/* ================= estado ================= */
+let spots=[], accounts=[];
+let editSpot=null, editAcc=null;
+let sortCol='puntaje', sortDesc=true;
+
+const COLS=[
+  ['spot','Spot'],['party','PJs'],['minutes','Min'],
+  ['exp','EXP'],['adena','Adena'],['exp_h','EXP/h'],['adena_h','Adena/h'],
+  ['puntaje','Puntaje'],['conf','Confiabilidad'],['_a','']
+];
+
+/* confiabilidad: 70% tiempo de muestra (tope 60 min) + 30% cantidad de mediciones (tope 3) */
+function confScore(minutes,runs){
+  return 70*Math.min(minutes/60,1)+30*Math.min(runs/3,1);
+}
+function confPill(minutes,runs){
+  const c=confScore(minutes,runs);
+  const [label,cls]=c>=75?['Alta','conf-a']:c>=45?['Media','conf-b']:c>=20?['Baja','conf-c']:['Muy baja','conf-d'];
+  return `<span class="score-pill ${cls}" title="${fmt(minutes)} min de muestra en ${runs} medición(es) · ${c.toFixed(0)}/100">${label}</span>`;
+}
+
+/* ================= utils ================= */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseNum(t){
+  if(t==null) throw 0;
+  let s=String(t).trim().toLowerCase().replace(/\s+/g,'');
+  if(!s) throw 0;
+  const m=s.match(/^([\d.,]+)(kk|k|m|b)?$/);
+  if(!m) throw 0;
+  let n=m[1];
+  const suf={k:1e3,kk:1e6,m:1e6,b:1e9}[m[2]]||1;
+  if(n.includes(',')&&n.includes('.')){
+    if(n.lastIndexOf(',')>n.lastIndexOf('.')) n=n.replace(/\./g,'').replace(',','.');
+    else n=n.replace(/,/g,'');
+  }else if(n.includes(',')){
+    n=/,\d{1,2}$/.test(n)?n.replace(',','.'):n.replace(/,/g,'');
+  }else if(n.includes('.')){
+    const many=(n.match(/\./g)||[]).length>1, thou=/\.\d{3}(\.|$)/.test(n);
+    if(many||(thou&&!/\.\d{1,2}$/.test(n))) n=n.replace(/\./g,'');
+  }
+  const v=parseFloat(n)*suf;
+  if(isNaN(v)) throw 0;
+  return v;
+}
+function fmt(n){
+  if(n>=1000) return Math.round(n).toLocaleString('de-DE');
+  return n===Math.trunc(n)?String(n):n.toFixed(1);
+}
+function compute(s){
+  const f=60/(s.minutes||1);
+  return {exp_h:s.exp*f, adena_h:s.adena*f};
+}
+
+/* ================= persistencia ================= */
+const api=()=>window.pywebview&&window.pywebview.api;
+let settings={}, settingsLoaded=false, setT;
+function persistSettings(){
+  if(!settingsLoaded) return;           // no pisar el archivo antes de cargarlo
+  clearTimeout(setT);
+  setT=setTimeout(()=>api()&&api().save_settings(settings),300);
+}
+async function loadAll(){
+  try{
+    const d=await api().get_data();
+    spots=d.spots||[]; accounts=d.accounts||[];
+    settings=d.settings||{};
+    const st=settings.lvlState;
+    if(st){
+      $('l-cur').value=st.cur; $('l-pct').value=st.pct; $('l-target').value=st.tgt;
+      if(st.chron&&EXP_TABLES[st.chron]) $('l-chron').value=st.chron;
+      $('c-lvl').value=st.cur;
+    }
+    if(settings.groupSpots!=null) $('group-toggle').checked=!!settings.groupSpots;
+    if(settings.timerStart!=null){
+      // cronometro quedo corriendo (la app se cerro a mitad de bufiada): reanudar
+      timerNotified=(Date.now()-settings.timerStart)>=20*60000;
+      timerStartUI();
+    }
+  }catch(e){}
+  settingsLoaded=true;
+  calibRender();
+  renderSpots();
+  renderAccounts();
+  renderEcoList();
+  refreshBackupStatus();
+  checkUpdates();
+}
+
+async function refreshBackupStatus(){
+  try{
+    const b=await api().backup_status();
+    const isGD=b&&b.kind==='Google Drive';
+    // sidebar
+    $('backup-foot').innerHTML=b&&b.kind
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;vertical-align:-1px"><path stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg> Respaldo activo<br><b style="color:var(--green2)">${b.kind}</b>`
+      : `Sin respaldo en la nube`;
+    const v=await api().app_version();
+    $('ver-foot').textContent='v'+v;
+    $('cfg-version').textContent=v;
+    // panel de configuración
+    const dot=$('sync-dot'), title=$('sync-title'), sub=$('sync-sub');
+    if(isGD){
+      dot.style.background='var(--green)';
+      title.textContent='Google Drive conectado';
+      sub.textContent='Tus datos se respaldan automáticamente en tu cuenta · carpeta L2Toolkit Backup';
+      $('cfg-connect').style.display='none';
+      $('cfg-disconnect').style.display='';
+    }else if(b&&b.kind){
+      dot.style.background='#f59e0b';
+      title.textContent=`Respaldo local en ${b.kind}`;
+      sub.textContent='Conecta Google Drive para sincronizar en tu propia cuenta de Google.';
+      $('cfg-connect').style.display='';
+      $('cfg-disconnect').style.display='none';
+    }else{
+      dot.style.background='var(--red)';
+      title.textContent='Sin respaldo en la nube';
+      sub.textContent='Conecta tu Google Drive para no perder tus datos.';
+      $('cfg-connect').style.display='';
+      $('cfg-disconnect').style.display='none';
+    }
+  }catch(e){}
+}
+
+async function connectDrive(){
+  const btn=$('cfg-connect');
+  btn.disabled=true;
+  const orig=btn.textContent;
+  btn.textContent='Autoriza en el navegador...';
+  toast('Se abrirá tu navegador: elige TU cuenta de Google y presiona Permitir');
+  try{
+    const r=await api().connect_drive();
+    toast(r&&r.ok ? '¡Google Drive conectado! Respaldo automático activo'
+                  : ''+((r&&r.error)||'No se pudo conectar'));
+  }catch(e){ toast('Error al conectar'); }
+  btn.disabled=false;
+  btn.textContent=orig;
+  refreshBackupStatus();
+}
+
+async function backupNow(){
+  const btn=$('cfg-backup'); btn.disabled=true; const o=btn.textContent; btn.textContent='Respaldando...';
+  try{
+    const r=await api().backup_now();
+    toast(r&&r.ok ? `Respaldado en ${r.kind}` : ''+((r&&r.error)||'No se pudo respaldar'));
+  }catch(e){ toast('Error al respaldar'); }
+  btn.disabled=false; btn.textContent=o;
+}
+
+function restoreCloud(){
+  modal('Restaurar desde la nube',
+    'Esto traerá tus datos de la nube y REEMPLAZARÁ los que tienes en esta PC (spots, cuentas, calibraciones y recetas). Úsalo si cambiaste de PC o reinstalaste. ¿Continuar?',
+    [['Cancelar','btn-ghost',null],
+     ['Restaurar','btn-primary',doRestore]]);
+}
+async function doRestore(){
+  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Restaurando...';
+  try{
+    const r=await api().restore_from_cloud();
+    if(r&&r.ok){
+      toast(`Datos restaurados desde ${r.kind}`);
+      await loadAll();   // recargar todo con los datos restaurados
+    }else{
+      toast(''+((r&&r.error)||'No se pudo restaurar'));
+    }
+  }catch(e){ toast('Error al restaurar'); }
+  btn.disabled=false; btn.textContent=o;
+}
+
+function disconnectDrive(){
+  modal('Desconectar Google Drive',
+    'Se dejará de respaldar automáticamente. Tus datos locales y los ya subidos a tu Drive NO se borran. ¿Continuar?',
+    [['Cancelar','btn-ghost',null],
+     ['Desconectar','btn-danger',async()=>{
+        try{ await api().disconnect_drive(); toast('Google Drive desconectado'); }catch(e){}
+        refreshBackupStatus();
+     }]]);
+}
+
+async function manualCheckUpdate(){
+  $('cfg-update-line').textContent='Buscando actualizaciones...';
+  try{
+    const u=await api().check_update();
+    if(u&&u.update){
+      updateInfo=u;
+      $('cfg-update-line').innerHTML=`<b style="color:var(--green2)">Versión ${u.version} disponible</b> · <a href="#" onclick="openUpdate();return false" style="color:var(--acc2)">instalar</a>`;
+      $('update-txt').textContent=`Versión ${u.version} · clic para instalar`;
+      $('update-banner').style.display='';
+    }else{
+      $('cfg-update-line').innerHTML='<span style="color:var(--green2)">Estás en la última versión</span>';
+    }
+  }catch(e){ $('cfg-update-line').textContent='No se pudo comprobar (sin conexión)'; }
+}
+
+let updateInfo=null;
+async function checkUpdates(){
+  try{
+    const u=await api().check_update();
+    if(u&&u.update){
+      updateInfo=u;
+      $('update-txt').textContent=`Versión ${u.version} · clic para instalar`;
+      $('update-banner').style.display='';
+      $('cfg-update-line').innerHTML=`<b style="color:var(--green2)">Versión ${u.version} disponible</b> · <a href="#" onclick="openUpdate();return false" style="color:var(--acc2)">instalar</a>`;
+      toast(`Nueva versión ${u.version} disponible`);
+    }else{
+      $('cfg-update-line').innerHTML='<span style="color:var(--green2)">Estás en la última versión</span>';
+    }
+  }catch(e){ $('cfg-update-line').textContent='No se pudo comprobar actualizaciones'; }
+}
+function openUpdate(){
+  if(!updateInfo) return;
+  const notes=updateInfo.notes?`\n\nNovedades:\n${updateInfo.notes}`:'';
+  modal('Actualizar a la versión '+updateInfo.version,
+    'Se descargará e instalará la nueva versión. La app se cerrará y volverá a abrir sola (unos segundos).'+notes,
+    [['Ahora no','btn-ghost',null],
+     ['Instalar ahora','btn-primary',doInstallUpdate]]);
+}
+async function doInstallUpdate(){
+  $('update-txt').textContent='Descargando e instalando...';
+  toast('Descargando actualización... la app se reiniciará sola');
+  try{
+    const r=await api().install_update();
+    if(r&&!r.ok) toast(''+(r.error||'No se pudo instalar'));
+    // si r.ok === true, la app se cierra y reabre sola (este código ya no corre)
+  }catch(e){ /* la app se está cerrando para reemplazar el exe */ }
+}
+const saveSpots=()=>api()&&api().save_spots(spots);
+const saveAccounts=()=>api()&&api().save_accounts(accounts);
+
+/* ================= toast & modal ================= */
+let toastT;
+function toast(msg){
+  const t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2400);
+}
+function modal(title,msg,buttons){
+  $('modal-title').textContent=title; $('modal-msg').textContent=msg;
+  const row=$('modal-btns'); row.innerHTML='';
+  buttons.forEach(([label,cls,fn])=>{
+    const b=document.createElement('button');
+    b.className='btn '+cls; b.textContent=label;
+    b.onclick=()=>{ $('overlay').classList.remove('show'); fn&&fn(); };
+    row.appendChild(b);
+  });
+  $('overlay').classList.add('show');
+}
+
+/* ================= navegacion ================= */
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.onclick=()=>{
+    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    $('page-'+el.dataset.page).classList.add('active');
+  };
+});
+
+/* ================= cronometro de bufiada ================= */
+let timerInt=null, timerNotified=false;
+function timerRunning(){ return settings.timerStart!=null; }
+function timerToggle(){
+  if(!timerRunning()){
+    settings.timerStart=Date.now();
+    persistSettings();
+    timerNotified=false;
+    timerStartUI();
+  }else{
+    const mins=(Date.now()-settings.timerStart)/60000;
+    $('f-min').value=mins.toFixed(1);
+    timerReset();
+    $('f-exp').focus();
+    toast(`${mins.toFixed(1)} min registrados · ahora ingresa la EXP ganada`);
+  }
+}
+function timerCancel(){
+  timerReset();
+  toast('Cronómetro cancelado, tiempo descartado');
+}
+function timerStartUI(){
+  clearInterval(timerInt);
+  timerInt=setInterval(timerTick,1000);
+  timerTick();
+  $('timer-btn').innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>Detener y usar tiempo';
+  $('timer-cancel').style.display='';
+  $('timer-disp').classList.add('running');
+}
+function timerReset(){
+  settings.timerStart=null;
+  persistSettings();
+  clearInterval(timerInt); timerInt=null;
+  $('timer-disp').textContent='00:00';
+  $('timer-disp').classList.remove('running','done');
+  $('timer-btn').innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Iniciar bufiada';
+  $('timer-cancel').style.display='none';
+}
+function timerTick(){
+  if(!timerRunning()) return;
+  const s=Math.floor((Date.now()-settings.timerStart)/1000);
+  const mm=Math.floor(s/60), ss=s%60, hh=Math.floor(mm/60);
+  $('timer-disp').textContent=hh>0
+    ? `${hh}:${String(mm%60).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
+    : `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  if(mm>=20){
+    $('timer-disp').classList.add('done');
+    if(!timerNotified){
+      timerNotified=true;
+      toast('¡20 minutos! Bufiada completa, puedes detener cuando quieras');
+    }
+  }
+}
+
+/* ================= calculadora ================= */
+function spotSubmit(){
+  const name=$('f-spot').value.trim();
+  if(!name) return toast('Ingresa el nombre del spot');
+  let party,minutes,exp,adena;
+  try{
+    party=Math.trunc(parseNum($('f-party').value));
+    minutes=parseNum($('f-min').value);
+    exp=parseNum($('f-exp').value);
+    adena=parseNum($('f-adena').value);
+  }catch(e){ return toast('Revisa los valores numéricos'); }
+  if(party<1) return toast('La party debe tener al menos 1 PJ');
+  if(minutes<=0) return toast('El tiempo debe ser mayor a 0');
+  const s={spot:name,party,minutes,exp,adena};
+  if(editSpot==null){ spots.push(s); toast(`Spot “${name}” agregado`); }
+  else{ spots[editSpot]=s; toast(`Spot “${name}” actualizado`); }
+  saveSpots(); spotClear(); renderSpots();
+}
+function spotClear(){
+  editSpot=null;
+  $('f-spot').value=''; $('f-party').value='9'; $('f-min').value='20';
+  $('f-exp').value=''; $('f-adena').value='';
+  $('btn-spot-add').textContent='Agregar spot';
+  $('spot-form-title').textContent='Nuevo spot';
+}
+function spotEdit(i){
+  const s=spots[i]; editSpot=i;
+  $('f-spot').value=s.spot; $('f-party').value=s.party; $('f-min').value=fmt(s.minutes);
+  $('f-exp').value=fmt(s.exp); $('f-adena').value=fmt(s.adena);
+  $('btn-spot-add').textContent='Guardar cambios';
+  $('spot-form-title').textContent='Editando: '+s.spot;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function spotDel(i){
+  modal('Eliminar spot',`¿Eliminar “${spots[i].spot}”? Esta acción no se puede deshacer.`,
+    [['Cancelar','btn-ghost',null],
+     ['Eliminar','btn-danger',()=>{ spots.splice(i,1); saveSpots(); spotClear(); renderSpots(); toast('Spot eliminado'); }]]);
+}
+function setSort(c){
+  if(c==='_a') return;
+  if(sortCol===c) sortDesc=!sortDesc; else{ sortCol=c; sortDesc=true; }
+  renderSpots();
+}
+function groupedSpots(){
+  /* combina todas las mediciones con el mismo nombre de spot:
+     suma EXP, adena y minutos -> EXP/h ponderada por tiempo */
+  const map=new Map();
+  spots.forEach((s,i)=>{
+    const k=s.spot.trim().toLowerCase();
+    if(!map.has(k)) map.set(k,{spot:s.spot,party:s.party,minutes:0,exp:0,adena:0,runs:0,_i:i});
+    const g=map.get(k);
+    g.minutes+=s.minutes; g.exp+=s.exp; g.adena+=s.adena; g.runs++;
+    g.party=s.party;
+    if(g.runs>1) g._i=-1;   // grupo combinado: se edita desagrupando
+  });
+  return [...map.values()];
+}
+function onGroupToggle(){
+  settings.groupSpots=$('group-toggle').checked;
+  persistSettings();
+  renderSpots();
+}
+function renderSpots(){
+  const grouping=$('group-toggle').checked;
+  const base=grouping?groupedSpots():spots.map((s,i)=>({...s,runs:1,_i:i}));
+  const rows=base.map(s=>({...s,...compute(s),conf:confScore(s.minutes,s.runs)}));
+  // Puntaje = EXP/h relativo al mejor spot (0-100). El más rápido para subir = 100.
+  const mx=Math.max(...rows.map(r=>r.exp_h),0);
+  rows.forEach(r=>{ r.puntaje=mx?r.exp_h/mx*100:0; });
+  rows.sort((a,b)=>{
+    let va=a[sortCol],vb=b[sortCol];
+    if(sortCol==='spot'){va=String(va).toLowerCase();vb=String(vb).toLowerCase();
+      return sortDesc?vb.localeCompare(va):va.localeCompare(vb);}
+    return sortDesc?vb-va:va-vb;
+  });
+  const bestI=rows.length?rows.reduce((m,r,i)=>r.puntaje>rows[m].puntaje?i:m,0):-1;
+
+  $('thead-row').innerHTML=COLS.map(([k,l])=>{
+    const arr=k===sortCol?(sortDesc?' ▾':' ▴'):'';
+    return `<th class="${k===sortCol?'sorted':''}" onclick="setSort('${k}')">${l}${arr}</th>`;
+  }).join('');
+
+  $('tbody').innerHTML=rows.map((r,i)=>{
+    const sc=r.puntaje>=80?'score-hi':r.puntaje>=40?'score-mid':'score-lo';
+    const actions=r._i>=0
+      ? `<span style="display:inline-flex;gap:2px">
+          <button class="btn-icon" title="Editar" onclick="spotEdit(${r._i})">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
+          </button>
+          <button class="btn-icon danger" title="Eliminar" onclick="spotDel(${r._i})">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+          </button>
+        </span>`
+      : `<span style="color:var(--muted);font-size:11px" title="Desactiva la agrupación para editar las mediciones">combinado</span>`;
+    return `<tr class="${i===bestI?'best':''}">
+      <td>${esc(r.spot)}${r.runs>1?`<span class="runs-badge">${r.runs} mediciones</span>`:''}${i===bestI?'<span class="badge-best"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.5l7.1-.6z"/></svg>MEJOR</span>':''}</td>
+      <td>${r.party}</td><td>${fmt(r.minutes)}</td>
+      <td>${fmt(r.exp)}</td><td>${fmt(r.adena)}</td>
+      <td>${fmt(r.exp_h)}</td><td>${fmt(r.adena_h)}</td>
+      <td><span class="score-pill ${sc}">${r.puntaje.toFixed(1)}</span></td>
+      <td>${confPill(r.minutes,r.runs)}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+
+  const has=rows.length>0;
+  $('spots-empty').style.display=has?'none':'block';
+  document.querySelector('.table-wrap table').style.display=has?'table':'none';
+  $('spot-count').textContent=has?`${rows.length} spot(s) · ordenados por puntaje`:'';
+  if(typeof lvlCalc==='function') lvlCalc();
+}
+
+/* ================= export / import ================= */
+async function exportSpots(){
+  if(!spots.length) return toast('No hay spots para exportar');
+  const r=await api().export_spots();
+  if(r&&r.ok) toast('Copia exportada');
+}
+async function importSpots(){
+  const data=await api().import_spots();
+  if(!data) return;
+  if(!Array.isArray(data)||!data.every(d=>d&&d.spot!==undefined&&d.exp!==undefined))
+    return toast('El archivo no tiene el formato esperado');
+  if(spots.length){
+    modal('Importar copia',`Se encontraron ${data.length} spots en el archivo. ¿Qué quieres hacer con los actuales?`,
+      [['Cancelar','btn-ghost',null],
+       ['Agregar','btn-ghost',()=>{ spots.push(...data); saveSpots(); renderSpots(); toast('Spots agregados'); }],
+       ['Reemplazar','btn-primary',()=>{ spots=data; saveSpots(); renderSpots(); toast('Copia importada'); }]]);
+  }else{
+    spots=data; saveSpots(); renderSpots(); toast('Copia importada');
+  }
+}
+
+/* ================= economia / crafteo ================= */
+const ECO_TEMPLATES={
+  bssd:{name:'Blessed Spiritshot D',out:100,mats:[['Spirit Ore',8,0],['Cristal (grado D)',2,0]]},
+  bssc:{name:'Blessed Spiritshot C',out:100,mats:[['Spirit Ore',30,0],['Cristal (grado C)',2,0]]},
+  bssa:{name:'Blessed Spiritshot A',out:100,mats:[['Spirit Ore',150,0],['Cristal (grado A)',2,0]]},
+  ss:{name:'Soulshot',out:100,mats:[['Soul Ore',0,0],['Cristal',0,0]]},
+  custom:{name:'',out:100,mats:[['',1,0]]}
+};
+let editEco=null;
+
+function safeNum(v){ try{ return parseNum(v); }catch(e){ return 0; } }
+
+function matAdd(name='',qty='',price=''){
+  const row=document.createElement('div');
+  row.className='form-grid';
+  row.style.marginBottom='6px';
+  row.innerHTML=`
+    <div class="field" style="flex:2;min-width:150px"><input class="mat-name" placeholder="Material (ej: Spirit Ore)" value="${esc(name)}" oninput="ecoCalc()"></div>
+    <div class="field" style="width:110px"><input class="mat-qty" placeholder="Cantidad" value="${esc(qty)}" oninput="ecoCalc()"></div>
+    <div class="field" style="width:150px"><input class="mat-price" placeholder="Precio unitario" value="${esc(price)}" oninput="ecoCalc()"></div>
+    <button class="btn-icon danger" title="Quitar material" onclick="this.parentElement.remove();ecoCalc()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+  $('mat-rows').appendChild(row);
+}
+
+function readRecipe(){
+  const mats=[...$('mat-rows').children].map(r=>({
+    name:r.querySelector('.mat-name').value.trim(),
+    qty:safeNum(r.querySelector('.mat-qty').value),
+    price:safeNum(r.querySelector('.mat-price').value),
+  })).filter(m=>m.name||m.qty||m.price);
+  return {
+    name:$('r-name').value.trim(),
+    out:safeNum($('r-out').value),
+    sell:safeNum($('r-sell').value),
+    fee:safeNum($('r-fee').value),
+    other:safeNum($('r-other').value),
+    mats,
+  };
+}
+
+function calcRecipe(r){
+  const matsCost=r.mats.reduce((a,m)=>a+m.qty*m.price,0);
+  const costCraft=matsCost+r.other;
+  const costUnit=r.out>0?costCraft/r.out:0;
+  const net=r.sell*(1-r.fee/100);
+  const profitUnit=net-costUnit;
+  const margin=costUnit>0?profitUnit/costUnit*100:null;
+  return {costCraft,costUnit,net,profitUnit,margin,
+          profit1000:profitUnit*1000,profitCraft:profitUnit*(r.out||0)};
+}
+
+function ecoCalc(){
+  const r=readRecipe(), c=calcRecipe(r);
+  const pos=c.profitUnit>=0, col=pos?'var(--green2)':'var(--red2)';
+  $('e-costcraft').textContent=fmt(Math.round(c.costCraft));
+  $('e-costcraft-sub').textContent=r.mats.length?`${r.mats.length} material(es) + otros costos`:'';
+  $('e-costunit').textContent=c.costUnit?fmt(+c.costUnit.toFixed(1)):'—';
+  $('e-costunit-sub').textContent=r.out>0?`craft de ${fmt(r.out)} unidades`:'define unidades por craft';
+  $('e-profitunit').textContent=(pos?'+':'')+fmt(+c.profitUnit.toFixed(1));
+  $('e-profitunit').style.color=col;
+  $('e-margin').textContent=c.margin!=null
+    ?`margen ${c.margin>=0?'+':''}${c.margin.toFixed(1)}% · venta neta ${fmt(+c.net.toFixed(1))}/u`
+    :'ingresa costos para ver el margen';
+  $('e-prof1000').textContent=(c.profit1000>=0?'+':'-')+fmtShort(Math.abs(c.profit1000));
+  $('e-prof1000').style.color=col;
+  $('e-profcraft').textContent=r.out>0?`${c.profitCraft>=0?'+':''}${fmt(Math.round(c.profitCraft))} por craft`:'';
+}
+
+function ecoTemplate(){
+  const t=ECO_TEMPLATES[$('eco-tpl').value];
+  if(!t) return;
+  editEco=null;
+  $('eco-form-title').textContent='Receta';
+  $('eco-save-btn').textContent='Guardar receta';
+  $('r-name').value=t.name; $('r-out').value=t.out;
+  $('r-sell').value=''; $('r-fee').value='0'; $('r-other').value='0';
+  $('mat-rows').innerHTML='';
+  t.mats.forEach(([n,q,p])=>matAdd(n,q||'',p||''));
+  ecoCalc();
+}
+
+function ecoClear(){
+  editEco=null;
+  $('eco-tpl').value='';
+  $('eco-form-title').textContent='Receta';
+  $('eco-save-btn').textContent='Guardar receta';
+  $('r-name').value=''; $('r-out').value='100';
+  $('r-sell').value=''; $('r-fee').value='0'; $('r-other').value='0';
+  $('mat-rows').innerHTML='';
+  matAdd();
+  ecoCalc();
+}
+
+function ecoSave(){
+  const r=readRecipe();
+  if(!r.name) return toast('Ponle un nombre a la receta');
+  if(r.out<=0) return toast('Define cuántas unidades produce cada craft');
+  if(!settings.recipes) settings.recipes=[];
+  if(editEco==null){ settings.recipes.push(r); toast(`Receta “${r.name}” guardada`); }
+  else{ settings.recipes[editEco]=r; toast(`Receta “${r.name}” actualizada`); }
+  persistSettings();
+  ecoClear();
+  renderEcoList();
+}
+
+function ecoLoad(i){
+  const r=settings.recipes[i];
+  editEco=i;
+  $('eco-tpl').value='';
+  $('eco-form-title').textContent='Editando: '+r.name;
+  $('eco-save-btn').textContent='Guardar cambios';
+  $('r-name').value=r.name; $('r-out').value=r.out;
+  $('r-sell').value=r.sell||''; $('r-fee').value=r.fee||0; $('r-other').value=r.other||0;
+  $('mat-rows').innerHTML='';
+  (r.mats.length?r.mats:[{name:'',qty:'',price:''}]).forEach(m=>matAdd(m.name,m.qty,m.price));
+  ecoCalc();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function ecoDel(i){
+  const n=settings.recipes[i].name;
+  modal('Eliminar receta',`¿Eliminar “${n}”?`,
+    [['Cancelar','btn-ghost',null],
+     ['Eliminar','btn-danger',()=>{ settings.recipes.splice(i,1); persistSettings(); ecoClear(); renderEcoList(); toast('Receta eliminada'); }]]);
+}
+
+function renderEcoList(){
+  const list=settings.recipes||[];
+  $('eco-empty').style.display=list.length?'none':'block';
+  $('eco-table').style.display=list.length?'table':'none';
+  if(!list.length){ $('eco-list').innerHTML=''; return; }
+  const rows=list.map((r,i)=>({r,i,c:calcRecipe(r)}));
+  rows.sort((a,b)=>(b.c.margin??-1e9)-(a.c.margin??-1e9));
+  $('eco-list').innerHTML=rows.map((x,pos)=>{
+    const {r,i,c}=x;
+    const col=c.profitUnit>=0?'var(--green2)':'var(--red2)';
+    const best=pos===0&&c.profitUnit>0;
+    return `<tr class="${best?'best':''}">
+      <td>${esc(r.name)}${best?'<span class="badge-best"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.5l7.1-.6z"/></svg>MÁS RENTABLE</span>':''}</td>
+      <td>${fmt(+c.costUnit.toFixed(1))}</td>
+      <td>${fmt(r.sell)}</td>
+      <td style="color:${col};font-weight:700">${c.profitUnit>=0?'+':''}${fmt(+c.profitUnit.toFixed(1))}</td>
+      <td style="color:${col}">${c.margin!=null?(c.margin>=0?'+':'')+c.margin.toFixed(1)+'%':'—'}</td>
+      <td style="color:${col}">${c.profit1000>=0?'+':''}${fmt(Math.round(c.profit1000))}</td>
+      <td><span style="display:inline-flex;gap:2px">
+        <button class="btn-icon" title="Editar" onclick="ecoLoad(${i})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
+        </button>
+        <button class="btn-icon danger" title="Eliminar" onclick="ecoDel(${i})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+        </button>
+      </span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ================= cuentas ================= */
+function accSubmit(){
+  const alias=$('a-alias').value.trim(), user=$('a-user').value.trim(), pass=$('a-pass').value;
+  if(!alias&&!user) return toast('Ingresa al menos un alias o usuario');
+  const a={alias,user,password:pass};
+  if(editAcc==null){ accounts.push(a); toast(`Cuenta “${alias||user}” agregada`); }
+  else{ accounts[editAcc]=a; toast(`Cuenta “${alias||user}” actualizada`); }
+  saveAccounts(); accClear(); renderAccounts();
+}
+function accClear(){
+  editAcc=null;
+  $('a-alias').value=''; $('a-user').value=''; $('a-pass').value='';
+  $('btn-acc-add').textContent='Agregar cuenta';
+  $('acc-form-title').textContent='Nueva cuenta';
+}
+function accEdit(i){
+  const a=accounts[i]; editAcc=i;
+  $('a-alias').value=a.alias||''; $('a-user').value=a.user||''; $('a-pass').value=a.password||'';
+  $('btn-acc-add').textContent='Guardar cambios';
+  $('acc-form-title').textContent='Editando: '+(a.alias||a.user);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function accDel(i){
+  const n=accounts[i].alias||accounts[i].user||'cuenta';
+  modal('Eliminar cuenta',`¿Eliminar “${n}”? Esta acción no se puede deshacer.`,
+    [['Cancelar','btn-ghost',null],
+     ['Eliminar','btn-danger',()=>{ accounts.splice(i,1); saveAccounts(); accClear(); renderAccounts(); toast('Cuenta eliminada'); }]]);
+}
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }
+  catch(e){
+    const ta=document.createElement('textarea'); ta.value=t;
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); return true; }
+    catch(e2){ return false; }
+    finally{ ta.remove(); }
+  }
+}
+async function chipCopy(el,i,field,label){
+  const v=accounts[i][field]||'';
+  if(!v) return toast(`${label} vacío, nada que copiar`);
+  if(await copyText(v)){
+    const orig=el.dataset.text;
+    el.classList.add('copied');
+    el.querySelector('span').textContent='Copiado';
+    toast(`${label} copiado · pega con Ctrl+V`);
+    setTimeout(()=>{ el.classList.remove('copied'); el.querySelector('span').textContent=orig; },1100);
+  }
+}
+const short=(s,n=24)=>s.length<=n?s:s.slice(0,n-1)+'…';
+function renderAccounts(){
+  const list=$('acc-list');
+  $('acc-empty').style.display=accounts.length?'none':'block';
+  list.innerHTML=accounts.map((a,i)=>{
+    const alias=a.alias||a.user||'(sin alias)';
+    const ini=esc((alias.trim()[0]||'?').toUpperCase());
+    const u=a.user?short(a.user):'(sin usuario)';
+    const p=a.password?short(a.password):'(sin contraseña)';
+    const copyIco='<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+    return `<div class="acc-card">
+      <div class="avatar">${ini}</div>
+      <div class="acc-info">
+        <div class="alias">${esc(alias)}</div>
+        <div class="sub">clic en un dato para copiar</div>
+      </div>
+      <div class="chips">
+        <button class="chip chip-user" data-text="${esc(u)}" onclick="chipCopy(this,${i},'user','Usuario')">${copyIco}<span>${esc(u)}</span></button>
+        <button class="chip chip-pass" data-text="${esc(p)}" onclick="chipCopy(this,${i},'password','Contraseña')">${copyIco}<span>${esc(p)}</span></button>
+      </div>
+      <div class="acc-actions">
+        <button class="btn-icon" title="Editar" onclick="accEdit(${i})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
+        </button>
+        <button class="btn-icon danger" title="Eliminar" onclick="accDel(${i})">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ================= calculadora de nivel ================= */
+/* Tablas de EXP acumulada por nivel, por cronica */
+const EXP_TABLES={
+  classic:{
+    name:'Classic',
+    max:82,
+    cum:{1:0,2:68,3:364,4:1169,5:2885,6:6039,7:11288,8:19424,9:31379,10:48230,
+    11:71203,12:101678,13:141194,14:191455,15:254331,16:331868,17:426289,18:540001,19:675597,20:835864,
+    21:1023785,22:1439215,23:1948497,24:2568850,25:3320625,26:4227172,27:5315161,28:6614929,29:8161929,30:9995812,
+    31:12162655,32:14713777,33:17708475,34:21213445,35:25304463,36:30067485,37:35599858,38:42010312,39:49421366,40:57972427,
+    41:67818553,42:79135431,43:92117896,44:106985763,45:123986756,46:143394645,47:165516618,48:190696911,49:219317613,50:251805374,
+    51:288635909,52:330338848,53:377507026,54:430790086,55:490916803,56:558693890,57:635018116,58:720879370,59:817380319,60:925741335,
+    61:1047311009,62:1183577349,63:1336187067,64:1506967658,65:1697936136,66:1911306680,67:2149533465,68:2415323168,69:2711646440,70:3041801165,
+    71:3409398455,72:3818421441,73:4273257148,74:4778730308,75:5340152664,76:5963335189,77:7138805250,78:9372198366,79:16072377713,80:45106488218,
+    81:156776144008,82:286483508913}
+  },
+  interlude:{
+    name:'Interlude',
+    max:80,
+    cum:{1:0,2:68,3:363,4:1168,5:2884,6:6038,7:11287,8:19423,9:31378,10:48229,
+    11:70202,12:101677,13:141193,14:191454,15:254330,16:331867,17:426288,18:540000,19:675596,20:835862,
+    21:1023784,22:1242546,23:1786379,24:2118876,25:2497077,26:2955250,27:3407897,28:3949754,29:4555796,30:5231246,
+    31:5981576,32:6812513,33:7730044,34:8740422,35:9850166,36:11066072,37:12395216,38:13844951,39:15422929,40:17137087,
+    41:18995665,42:21007203,43:23180550,44:25524868,45:28049635,46:30764654,47:33680052,48:36806289,49:40154162,50:45525133,
+    51:51262490,52:57383988,53:63907911,54:70853089,55:80700831,56:91162654,57:102265881,58:114038596,59:126509653,60:146308200,
+    61:167244337,62:189364894,63:212717906,64:237352644,65:271975263,66:308443198,67:346827154,68:387199547,69:429634523,70:474207979,
+    71:532694979,72:606322775,73:696381369,74:804225364,75:931275828,76:1151275834,77:1511275834,78:2099275832,79:4200000000,80:6300000000}
+  }
+};
+function curTable(){ return EXP_TABLES[$('l-chron').value]||EXP_TABLES.classic; }
+
+function fmtShort(n){
+  if(n>=1e9) return (n/1e9).toFixed(2).replace(/\.?0+$/,'')+'b';
+  if(n>=1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'kk';
+  if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.?0+$/,'')+'k';
+  return String(Math.round(n));
+}
+function fmtTime(h){
+  if(!isFinite(h)) return '—';
+  const m=Math.round(h*60);
+  if(m<60) return m+' min';
+  const hh=Math.floor(m/60), mm=m%60;
+  return mm?`${hh}h ${mm}min`:`${hh}h`;
+}
+
+function lvlVals(){
+  const T=curTable();
+  let cur=parseInt($('l-cur').value)||1;
+  let pct=parseFloat(String($('l-pct').value).replace(',','.'))||0;
+  let tgt=parseInt($('l-target').value)||0;
+  cur=Math.min(Math.max(cur,1),T.max-1);
+  pct=Math.min(Math.max(pct,0),99.99);
+  if(!tgt||tgt<=cur) tgt=cur+1;
+  tgt=Math.min(tgt,T.max);
+  return {T,cur,pct,tgt};
+}
+function lvlNormalize(){
+  /* al salir de un campo, escribe los valores efectivos para que
+     lo que se ve sea exactamente lo que se calcula */
+  const {cur,pct,tgt}=lvlVals();
+  $('l-cur').value=cur;
+  $('l-pct').value=pct;
+  $('l-target').value=tgt;
+  lvlCalc();
+}
+/* ---- calibracion: EXP real por nivel medida en tu servidor ----
+   Se guarda en l2_settings.json (%APPDATA%) via el backend, igual que spots y cuentas. */
+function ovGet(){ return settings.lvlOverrides||{}; }
+function ovSet(o){ settings.lvlOverrides=o; persistSettings(); }
+function spanOf(T,L){
+  const ov=ovGet();
+  return ov[L]!=null?ov[L]:(T.cum[L+1]-T.cum[L]);
+}
+function calibApply(){
+  const lvl=parseInt($('c-lvl').value)||0;
+  const pi=parseFloat(String($('c-i').value).replace(',','.'));
+  const pf=parseFloat(String($('c-f').value).replace(',','.'));
+  let exp;
+  try{ exp=parseNum($('c-exp').value); }catch(e){ return toast('Revisa la EXP ganada'); }
+  if(lvl<1||lvl>98) return toast('Nivel inválido');
+  if(isNaN(pi)||isNaN(pf)||pf<=pi) return toast('El % final debe ser mayor al inicial');
+  if(exp<=0) return toast('La EXP debe ser mayor a 0');
+  const span=Math.round(exp/((pf-pi)/100));
+  const ov=ovGet(); ov[lvl]=span; ovSet(ov);
+  $('c-i').value=''; $('c-f').value=''; $('c-exp').value='';
+  calibRender(); lvlCalc();
+  toast(`Nivel ${lvl} calibrado: ${fmtShort(span)} EXP por nivel`);
+}
+function calibRemove(lvl){
+  const ov=ovGet(); delete ov[lvl]; ovSet(ov);
+  calibRender(); lvlCalc();
+  toast(`Calibración del nivel ${lvl} eliminada`);
+}
+function calibRender(){
+  const ov=ovGet();
+  const keys=Object.keys(ov).sort((a,b)=>a-b);
+  $('calib-list').innerHTML=keys.length
+    ? keys.map(l=>`<span class="calib-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;flex:none"><path stroke-linecap="round" stroke-linejoin="round" d="M20 6L9 17l-5-5"/></svg>Nivel ${l}: ${fmtShort(ov[l])} por nivel
+        <button title="Quitar" onclick="calibRemove(${l})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg></button></span>`).join('')
+    : '';
+}
+
+function lvlCalc(){
+  const {T,cur,pct,tgt}=lvlVals();
+  const ov=ovGet();
+
+  settings.lvlState={cur,pct,tgt,chron:$('l-chron').value};
+  persistSettings();
+
+  const span=spanOf(T,cur);
+  let missing=0, nCal=0;
+  for(let L=cur;L<tgt;L++){
+    missing+=spanOf(T,L);
+    if(ov[L]!=null) nCal++;
+  }
+  missing=Math.max(0,missing-span*pct/100);
+
+  $('l-missing').textContent=fmtShort(missing);
+  $('l-missing-sub').textContent=
+    `${fmt(Math.round(missing))} EXP hasta el nivel ${tgt} · `+
+    (nCal?`${nCal} nivel(es) calibrado(s) con tus datos`:`tabla ${T.name}`);
+  $('l-prog-cap').textContent=`Progreso del nivel ${cur}${ov[cur]!=null?' · calibrado':''}`;
+  $('l-prog').textContent=pct.toFixed(1)+'%';
+  $('l-prog-fill').style.width=pct+'%';
+  $('l-prog-sub').textContent=
+    `Este nivel: ${fmtShort(span*pct/100)} / ${fmtShort(span)} · faltan ${fmtShort(span*(100-pct)/100)} para el ${cur+1}`;
+
+  // plan por spot: siempre con mediciones agrupadas (EXP/h ponderada por tiempo)
+  const usable=groupedSpots().map(s=>({...s,...compute(s)})).filter(s=>s.exp>0);
+  $('l-plan-empty').style.display=usable.length?'none':'block';
+  $('l-plan-table').style.display=usable.length?'table':'none';
+  if(!usable.length){ $('l-plan').innerHTML=''; return; }
+
+  usable.forEach(s=>{ s._hours=missing/s.exp_h; s._bufs=s._hours*3; });  // bufiada = 20 min
+  usable.sort((a,b)=>a._hours-b._hours);
+
+  $('l-plan').innerHTML=usable.map((s,i)=>`
+    <tr class="${i===0?'best':''}">
+      <td>${esc(s.spot)}${s.runs>1?`<span class="runs-badge">${s.runs} mediciones</span>`:''}${i===0?'<span class="badge-best"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.5l7.1-.6z"/></svg>MÁS RÁPIDO</span>':''}</td>
+      <td>${fmt(s.exp_h)}</td>
+      <td>${fmtTime(s.minutes/60)} ${confPill(s.minutes,s.runs)}</td>
+      <td>${missing>0?s._bufs.toFixed(1):'—'}</td>
+      <td><span class="time-pill">${missing>0?fmtTime(s._hours):'listo'}</span></td>
+    </tr>`).join('');
+}
+
+/* ================= init ================= */
+calibRender();
+ecoClear();
+renderEcoList();
+renderSpots();
+window.addEventListener('pywebviewready',loadAll);
+setTimeout(()=>{ if(!settingsLoaded&&api()) loadAll(); },800);
+</script>
+</body>
+</html>
