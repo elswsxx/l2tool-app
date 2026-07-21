@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.5"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -234,24 +234,41 @@ def cloud_backup_target():
 # puede borrar lo de otra. No modifica lo local (respeta lo que borraste aqui);
 # para traer lo que falte de la nube se usa "Combinar" en la interfaz.
 # --------------------------------------------------------------------------- #
-def _spot_key(s):
-    return json.dumps([s.get("spot"), s.get("party"), s.get("minutes"),
-                       s.get("exp"), s.get("adena")], sort_keys=True)
+# Claves por contenido (para migrar datos viejos sin id). Deben producir el
+# MISMO string que las de JS (KEY_SPOT/KEY_ACC/KEY_REC), por eso None -> "".
+def _join(*vals):
+    return "|".join("" if v is None else str(v) for v in vals)
 
 
-def _acc_key(a):
-    return json.dumps([a.get("alias"), a.get("user"), a.get("password")])
+def _k_spot(s):
+    return _join("spot", s.get("spot"), s.get("party"), s.get("minutes"),
+                 s.get("exp"), s.get("adena"))
 
 
-def _union(local, cloud, keyfn):
-    out = list(local) if isinstance(local, list) else []
-    seen = {keyfn(x) for x in out}
-    for x in (cloud if isinstance(cloud, list) else []):
-        k = keyfn(x)
-        if k not in seen:
-            out.append(x)
-            seen.add(k)
-    return out
+def _k_acc(a):
+    return _join("acc", a.get("alias"), a.get("user"), a.get("password"))
+
+
+def _k_rec(r):
+    return _join("rec", r.get("name"))
+
+
+def _merge_items(local, cloud, keyfn):
+    """
+    Fusiona por id (o clave de contenido si es dato viejo sin id); para la misma
+    clave gana la version con _m mas reciente. Asi se propagan ediciones y
+    ARCHIVADOS sin perder nada: nada se borra de verdad, solo se marca archived.
+    """
+    by_id = {}
+    for item in (list(cloud) if isinstance(cloud, list) else []) + \
+                (list(local) if isinstance(local, list) else []):
+        if not isinstance(item, dict):
+            continue
+        iid = item.get("id") or keyfn(item)
+        cur = by_id.get(iid)
+        if cur is None or item.get("_m", 0) >= cur.get("_m", 0):
+            by_id[iid] = item
+    return list(by_id.values())
 
 
 def _merge_settings(local, cloud):
@@ -262,13 +279,8 @@ def _merge_settings(local, cloud):
     ov = dict(cloud.get("lvlOverrides", {}))
     ov.update(local.get("lvlOverrides", {}))
     merged["lvlOverrides"] = ov
-    recs = list(local.get("recipes", []))
-    names = {r.get("name") for r in recs}
-    for r in cloud.get("recipes", []):
-        if r.get("name") not in names:
-            recs.append(r)
-            names.add(r.get("name"))
-    merged["recipes"] = recs
+    merged["recipes"] = _merge_items(local.get("recipes", []),
+                                     cloud.get("recipes", []), _k_rec)
     return merged
 
 
@@ -315,13 +327,13 @@ def _sync_to_cloud():
 
     od, _ = cloud_backup_target()
     if od and os.path.isdir(od):  # unir tambien lo de la carpeta de nube local
-        cloud_spots = _union(cloud_spots, _read_json_dir(od, "l2_spots.json", []), _spot_key)
-        cloud_acc = _union(cloud_acc, _read_json_dir(od, "l2_accounts.json", []), _acc_key)
+        cloud_spots = _merge_items(cloud_spots, _read_json_dir(od, "l2_spots.json", []), _k_spot)
+        cloud_acc = _merge_items(cloud_acc, _read_json_dir(od, "l2_accounts.json", []), _k_acc)
         cloud_set = _merge_settings(cloud_set, _read_json_dir(od, "l2_settings.json", {}))
 
     merged = {
-        "l2_spots.json": _union(local_spots, cloud_spots, _spot_key),
-        "l2_accounts.json": _union(local_acc, cloud_acc, _acc_key),
+        "l2_spots.json": _merge_items(local_spots, cloud_spots, _k_spot),
+        "l2_accounts.json": _merge_items(local_acc, cloud_acc, _k_acc),
         "l2_settings.json": _merge_settings(local_set, cloud_set),
     }
     for name, data in merged.items():

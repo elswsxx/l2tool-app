@@ -1,4 +1,4 @@
 {
-  "version": "1.3.4",
-  "notes": "• Instalador de verdad para Windows: rclone viene incluido, todo listo para funcionar (ya no depende de winget).\n• Historial LOCAL automático: cada guardado se conserva con fecha en tu PC (tercera capa de respaldo, funciona sin internet).\n• Si rclone faltara, la app lo descarga sola."
+  "version": "1.3.5",
+  "notes": "• Archivar en vez de borrar: al \"eliminar\" un spot, cuenta o receta, se archiva (no se pierde) y se sincroniza en todas tus PC.\n• Puedes ver y restaurar lo archivado en cada sección.\n• Sincronización por elemento: gana la versión más reciente, sin duplicados."
 }

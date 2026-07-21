@@ -215,6 +215,18 @@
     font-size:14px;line-height:1;padding:2px 6px;border-radius:99px;opacity:.7;transition:all .15s}
   .calib-item button:hover{opacity:1;background:rgba(239,68,68,.2);color:var(--red2)}
 
+  /* archivados */
+  .archived-box{margin-top:14px}
+  .arch-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
+    letter-spacing:.05em;margin:6px 0 8px;display:flex;align-items:center;gap:7px}
+  .arch-head svg{width:14px;height:14px}
+  .arch-item{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--bg);border:1px solid var(--border);border-radius:9px;
+    padding:8px 12px;margin-bottom:6px;font-size:12.5px;color:var(--muted)}
+  .btn-mini{border:1px solid var(--border2);background:transparent;color:var(--acc2);
+    border-radius:8px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+  .btn-mini:hover{background:rgba(74,127,181,.12);border-color:var(--acc)}
+
   ::-webkit-scrollbar{width:10px;height:10px}
   ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px;border:2px solid var(--bg)}
   ::-webkit-scrollbar-track{background:transparent}
@@ -314,6 +326,7 @@
           <button class="btn btn-ghost" onclick="importSpots()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>Importar copia</button>
         </div>
       </div>
+      <div id="spots-archived" class="archived-box"></div>
     </div>
   </section>
 
@@ -449,6 +462,7 @@
           <h4>Sin recetas guardadas</h4><p>Configura una arriba y presiona "Guardar receta".</p>
         </div>
       </div>
+      <div id="eco-archived" class="archived-box"></div>
     </div>
   </section>
 
@@ -474,6 +488,7 @@
     <div class="empty card" id="acc-empty" style="display:none">
       <h4>Aún no tienes cuentas</h4><p>Agrega una con el formulario de arriba.</p>
     </div>
+    <div id="acc-archived" class="archived-box"></div>
   </section>
 
   <!-- ============ CONFIGURACIÓN ============ -->
@@ -560,6 +575,34 @@ function confPill(minutes,runs){
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* ===== identidad y archivado (soft-delete) ===== */
+function newId(){ return (self.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2); }
+function nowMs(){ return Date.now(); }
+/* claves deterministas por contenido: mismo contenido -> mismo id en toda PC
+   (deben coincidir EXACTO con las de Python para no duplicar al migrar) */
+const KEY_SPOT=s=>['spot',s.spot,s.party,s.minutes,s.exp,s.adena].join('|');
+const KEY_ACC =a=>['acc',a.alias,a.user,a.password].join('|');
+const KEY_REC =r=>['rec',r.name].join('|');
+function ensureIds(list,keyfn){ let ch=false; (list||[]).forEach(x=>{ if(x&&!x.id){ x.id=keyfn?keyfn(x):newId(); ch=true; } if(x&&x._m==null){ x._m=1; ch=true; } }); return ch; }
+function byId(list,id){ return (list||[]).find(x=>x.id===id); }
+function itemKey(x){ return (x&&x.id)?x.id:JSON.stringify(x); }
+function mergeById(a,b){ /* une por id; para el mismo id gana el _m mas nuevo */
+  const map=new Map();
+  [...(b||[]),...(a||[])].forEach(x=>{ if(!x) return; const k=itemKey(x); const c=map.get(k);
+    if(!c || (x._m||0)>=(c._m||0)) map.set(k,x); });
+  return [...map.values()];
+}
+function active(list){ return (list||[]).filter(x=>x&&!x.archived); }
+function archivedOf(list){ return (list||[]).filter(x=>x&&x.archived); }
+const ARCH_ICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>';
+function renderArchived(containerId, list, restoreFn, labelFn){
+  const c=document.getElementById(containerId); if(!c) return;
+  if(!list.length){ c.innerHTML=''; return; }
+  c.innerHTML=`<div class="arch-head">${ARCH_ICO} Archivados (${list.length})</div>`+
+    list.map(x=>`<div class="arch-item"><span>${labelFn(x)}</span>`+
+      `<button class="btn-mini" onclick="${restoreFn}('${x.id}')">Restaurar</button></div>`).join('');
+}
+
 function parseNum(t){
   if(t==null) throw 0;
   let s=String(t).trim().toLowerCase().replace(/\s+/g,'');
@@ -603,6 +646,9 @@ async function loadAll(){
     const d=await api().get_data();
     spots=d.spots||[]; accounts=d.accounts||[];
     settings=d.settings||{};
+    // migracion: asignar id + fecha a lo que no lo tenga
+    let mig=false;
+    mig=ensureIds(spots,KEY_SPOT)||mig; mig=ensureIds(accounts,KEY_ACC)||mig; mig=ensureIds(settings.recipes||[],KEY_REC)||mig;
     const st=settings.lvlState;
     if(st){
       $('l-cur').value=st.cur; $('l-pct').value=st.pct; $('l-target').value=st.tgt;
@@ -615,6 +661,7 @@ async function loadAll(){
       timerNotified=(Date.now()-settings.timerStart)>=20*60000;
       timerStartUI();
     }
+    if(mig){ saveSpots(); saveAccounts(); persistSettings(); }
   }catch(e){}
   settingsLoaded=true;
   calibRender();
@@ -707,26 +754,20 @@ async function restoreMerge(){
     const r=await api().fetch_cloud_data();
     if(!r||!r.ok){ toast(''+((r&&r.error)||'No se pudo leer la nube')); return; }
     const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
+    ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC); ensureIds(cset.recipes||[],KEY_REC);
 
-    // spots: unir sin duplicar (clave = todos los campos)
-    const sk=s=>`${s.spot}|${s.party}|${s.minutes}|${s.exp}|${s.adena}`;
-    const seen=new Set(spots.map(sk)); let addS=0;
-    cs.forEach(s=>{ if(!seen.has(sk(s))){ spots.push(s); seen.add(sk(s)); addS++; } });
-
-    // cuentas: unir sin duplicar
-    const ak=a=>`${a.alias}|${a.user}|${a.password}`;
-    const aseen=new Set(accounts.map(ak)); let addA=0;
-    ca.forEach(a=>{ if(!aseen.has(ak(a))){ accounts.push(a); aseen.add(ak(a)); addA++; } });
-
-    // settings: unir calibraciones y recetas; lo local gana en conflictos
+    // fusion por id: para el mismo id gana la version mas nueva (_m).
+    // Asi se traen los que faltan y se respeta el archivado mas reciente.
+    const before=spots.length+accounts.length+(settings.recipes||[]).length;
+    spots=mergeById(spots,cs);
+    accounts=mergeById(accounts,ca);
     settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
-    const recs=settings.recipes||[]; const rseen=new Set(recs.map(x=>x.name)); let addR=0;
-    (cset.recipes||[]).forEach(x=>{ if(!rseen.has(x.name)){ recs.push(x); rseen.add(x.name); addR++; } });
-    settings.recipes=recs;
+    settings.recipes=mergeById(settings.recipes||[],cset.recipes||[]);
+    const added=(spots.length+accounts.length+settings.recipes.length)-before;
 
     saveSpots(); saveAccounts(); persistSettings();
     renderSpots(); renderAccounts(); renderEcoList(); calibRender(); lvlCalc();
-    toast(`Combinado: +${addS} spot(s), +${addA} cuenta(s), +${addR} receta(s) de la nube`);
+    toast(`Combinado con la nube · ${added>0?('+'+added+' elemento(s) nuevo(s)'):'todo estaba al día'}`);
   }catch(e){ toast('Error al combinar'); }
   btn.disabled=false; btn.textContent=o;
 }
@@ -906,9 +947,9 @@ function spotSubmit(){
   }catch(e){ return toast('Revisa los valores numéricos'); }
   if(party<1) return toast('La party debe tener al menos 1 PJ');
   if(minutes<=0) return toast('El tiempo debe ser mayor a 0');
-  const s={spot:name,party,minutes,exp,adena};
-  if(editSpot==null){ spots.push(s); toast(`Spot “${name}” agregado`); }
-  else{ spots[editSpot]=s; toast(`Spot “${name}” actualizado`); }
+  const now=nowMs();
+  if(editSpot==null){ spots.push({id:newId(),spot:name,party,minutes,exp,adena,_m:now}); toast(`Spot “${name}” agregado`); }
+  else{ const s=byId(spots,editSpot); if(s) Object.assign(s,{spot:name,party,minutes,exp,adena,archived:false,_m:now}); toast(`Spot “${name}” actualizado`); }
   saveSpots(); spotClear(); renderSpots();
 }
 function spotClear(){
@@ -918,18 +959,24 @@ function spotClear(){
   $('btn-spot-add').textContent='Agregar spot';
   $('spot-form-title').textContent='Nuevo spot';
 }
-function spotEdit(i){
-  const s=spots[i]; editSpot=i;
+function spotEdit(id){
+  const s=byId(spots,id); if(!s) return; editSpot=id;
   $('f-spot').value=s.spot; $('f-party').value=s.party; $('f-min').value=fmt(s.minutes);
   $('f-exp').value=fmt(s.exp); $('f-adena').value=fmt(s.adena);
   $('btn-spot-add').textContent='Guardar cambios';
   $('spot-form-title').textContent='Editando: '+s.spot;
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function spotDel(i){
-  modal('Eliminar spot',`¿Eliminar “${spots[i].spot}”? Esta acción no se puede deshacer.`,
-    [['Cancelar','btn-ghost',null],
-     ['Eliminar','btn-danger',()=>{ spots.splice(i,1); saveSpots(); spotClear(); renderSpots(); toast('Spot eliminado'); }]]);
+function spotArchive(id){
+  const s=byId(spots,id); if(!s) return;
+  s.archived=true; s._m=nowMs();
+  saveSpots(); spotClear(); renderSpots();
+  toast(`“${s.spot}” archivado · lo ves en Archivados`);
+}
+function spotRestore(id){
+  const s=byId(spots,id); if(!s) return;
+  s.archived=false; s._m=nowMs();
+  saveSpots(); renderSpots(); toast(`“${s.spot}” restaurado`);
 }
 function setSort(c){
   if(c==='_a') return;
@@ -940,13 +987,13 @@ function groupedSpots(){
   /* combina todas las mediciones con el mismo nombre de spot:
      suma EXP, adena y minutos -> EXP/h ponderada por tiempo */
   const map=new Map();
-  spots.forEach((s,i)=>{
+  active(spots).forEach(s=>{
     const k=s.spot.trim().toLowerCase();
-    if(!map.has(k)) map.set(k,{spot:s.spot,party:s.party,minutes:0,exp:0,adena:0,runs:0,_i:i});
+    if(!map.has(k)) map.set(k,{spot:s.spot,party:s.party,minutes:0,exp:0,adena:0,runs:0,_id:s.id});
     const g=map.get(k);
     g.minutes+=s.minutes; g.exp+=s.exp; g.adena+=s.adena; g.runs++;
     g.party=s.party;
-    if(g.runs>1) g._i=-1;   // grupo combinado: se edita desagrupando
+    if(g.runs>1) g._id=null;   // grupo combinado: se edita desagrupando
   });
   return [...map.values()];
 }
@@ -957,7 +1004,7 @@ function onGroupToggle(){
 }
 function renderSpots(){
   const grouping=$('group-toggle').checked;
-  const base=grouping?groupedSpots():spots.map((s,i)=>({...s,runs:1,_i:i}));
+  const base=grouping?groupedSpots():active(spots).map(s=>({...s,runs:1,_id:s.id}));
   const rows=base.map(s=>({...s,...compute(s),conf:confScore(s.minutes,s.runs)}));
   // Puntaje = EXP/h relativo al mejor spot (0-100). El más rápido para subir = 100.
   const mx=Math.max(...rows.map(r=>r.exp_h),0);
@@ -977,13 +1024,13 @@ function renderSpots(){
 
   $('tbody').innerHTML=rows.map((r,i)=>{
     const sc=r.puntaje>=80?'score-hi':r.puntaje>=40?'score-mid':'score-lo';
-    const actions=r._i>=0
+    const actions=r._id
       ? `<span style="display:inline-flex;gap:2px">
-          <button class="btn-icon" title="Editar" onclick="spotEdit(${r._i})">
+          <button class="btn-icon" title="Editar" onclick="spotEdit('${r._id}')">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
           </button>
-          <button class="btn-icon danger" title="Eliminar" onclick="spotDel(${r._i})">
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+          <button class="btn-icon" title="Archivar" onclick="spotArchive('${r._id}')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
           </button>
         </span>`
       : `<span style="color:var(--muted);font-size:11px" title="Desactiva la agrupación para editar las mediciones">combinado</span>`;
@@ -1002,6 +1049,8 @@ function renderSpots(){
   $('spots-empty').style.display=has?'none':'block';
   document.querySelector('.table-wrap table').style.display=has?'table':'none';
   $('spot-count').textContent=has?`${rows.length} spot(s) · ordenados por puntaje`:'';
+  renderArchived('spots-archived', archivedOf(spots), 'spotRestore',
+    s=>`${esc(s.spot)} · ${fmt(s.exp)} EXP / ${fmt(s.minutes)} min`);
   if(typeof lvlCalc==='function') lvlCalc();
 }
 
@@ -1124,16 +1173,17 @@ function ecoSave(){
   if(!r.name) return toast('Ponle un nombre a la receta');
   if(r.out<=0) return toast('Define cuántas unidades produce cada craft');
   if(!settings.recipes) settings.recipes=[];
-  if(editEco==null){ settings.recipes.push(r); toast(`Receta “${r.name}” guardada`); }
-  else{ settings.recipes[editEco]=r; toast(`Receta “${r.name}” actualizada`); }
+  const now=nowMs();
+  if(editEco==null){ settings.recipes.push({...r,id:newId(),_m:now}); toast(`Receta “${r.name}” guardada`); }
+  else{ const e=byId(settings.recipes,editEco); if(e) Object.assign(e,r,{archived:false,_m:now}); toast(`Receta “${r.name}” actualizada`); }
   persistSettings();
   ecoClear();
   renderEcoList();
 }
 
-function ecoLoad(i){
-  const r=settings.recipes[i];
-  editEco=i;
+function ecoLoad(id){
+  const r=byId(settings.recipes,id); if(!r) return;
+  editEco=id;
   $('eco-tpl').value='';
   $('eco-form-title').textContent='Editando: '+r.name;
   $('eco-save-btn').textContent='Guardar cambios';
@@ -1145,19 +1195,26 @@ function ecoLoad(i){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function ecoDel(i){
-  const n=settings.recipes[i].name;
-  modal('Eliminar receta',`¿Eliminar “${n}”?`,
-    [['Cancelar','btn-ghost',null],
-     ['Eliminar','btn-danger',()=>{ settings.recipes.splice(i,1); persistSettings(); ecoClear(); renderEcoList(); toast('Receta eliminada'); }]]);
+function ecoArchive(id){
+  const r=byId(settings.recipes,id); if(!r) return;
+  r.archived=true; r._m=nowMs();
+  persistSettings(); ecoClear(); renderEcoList();
+  toast(`Receta “${r.name}” archivada`);
+}
+function ecoRestore(id){
+  const r=byId(settings.recipes,id); if(!r) return;
+  r.archived=false; r._m=nowMs();
+  persistSettings(); renderEcoList(); toast(`Receta “${r.name}” restaurada`);
 }
 
 function renderEcoList(){
-  const list=settings.recipes||[];
-  $('eco-empty').style.display=list.length?'none':'block';
+  const list=active(settings.recipes||[]);
+  const any=(settings.recipes||[]).length>0;
+  $('eco-empty').style.display=list.length?'none':(any?'none':'block');
   $('eco-table').style.display=list.length?'table':'none';
+  renderArchived('eco-archived', archivedOf(settings.recipes||[]), 'ecoRestore', r=>esc(r.name));
   if(!list.length){ $('eco-list').innerHTML=''; return; }
-  const rows=list.map((r,i)=>({r,i,c:calcRecipe(r)}));
+  const rows=list.map((r)=>({r,i:r.id,c:calcRecipe(r)}));
   rows.sort((a,b)=>(b.c.margin??-1e9)-(a.c.margin??-1e9));
   $('eco-list').innerHTML=rows.map((x,pos)=>{
     const {r,i,c}=x;
@@ -1171,11 +1228,11 @@ function renderEcoList(){
       <td style="color:${col}">${c.margin!=null?(c.margin>=0?'+':'')+c.margin.toFixed(1)+'%':'—'}</td>
       <td style="color:${col}">${c.profit1000>=0?'+':''}${fmt(Math.round(c.profit1000))}</td>
       <td><span style="display:inline-flex;gap:2px">
-        <button class="btn-icon" title="Editar" onclick="ecoLoad(${i})">
+        <button class="btn-icon" title="Editar" onclick="ecoLoad('${i}')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
         </button>
-        <button class="btn-icon danger" title="Eliminar" onclick="ecoDel(${i})">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+        <button class="btn-icon" title="Archivar" onclick="ecoArchive('${i}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
         </button>
       </span></td>
     </tr>`;
@@ -1186,9 +1243,9 @@ function renderEcoList(){
 function accSubmit(){
   const alias=$('a-alias').value.trim(), user=$('a-user').value.trim(), pass=$('a-pass').value;
   if(!alias&&!user) return toast('Ingresa al menos un alias o usuario');
-  const a={alias,user,password:pass};
-  if(editAcc==null){ accounts.push(a); toast(`Cuenta “${alias||user}” agregada`); }
-  else{ accounts[editAcc]=a; toast(`Cuenta “${alias||user}” actualizada`); }
+  const now=nowMs();
+  if(editAcc==null){ accounts.push({id:newId(),alias,user,password:pass,_m:now}); toast(`Cuenta “${alias||user}” agregada`); }
+  else{ const a=byId(accounts,editAcc); if(a) Object.assign(a,{alias,user,password:pass,archived:false,_m:now}); toast(`Cuenta “${alias||user}” actualizada`); }
   saveAccounts(); accClear(); renderAccounts();
 }
 function accClear(){
@@ -1197,18 +1254,23 @@ function accClear(){
   $('btn-acc-add').textContent='Agregar cuenta';
   $('acc-form-title').textContent='Nueva cuenta';
 }
-function accEdit(i){
-  const a=accounts[i]; editAcc=i;
+function accEdit(id){
+  const a=byId(accounts,id); if(!a) return; editAcc=id;
   $('a-alias').value=a.alias||''; $('a-user').value=a.user||''; $('a-pass').value=a.password||'';
   $('btn-acc-add').textContent='Guardar cambios';
   $('acc-form-title').textContent='Editando: '+(a.alias||a.user);
   window.scrollTo({top:0,behavior:'smooth'});
 }
-function accDel(i){
-  const n=accounts[i].alias||accounts[i].user||'cuenta';
-  modal('Eliminar cuenta',`¿Eliminar “${n}”? Esta acción no se puede deshacer.`,
-    [['Cancelar','btn-ghost',null],
-     ['Eliminar','btn-danger',()=>{ accounts.splice(i,1); saveAccounts(); accClear(); renderAccounts(); toast('Cuenta eliminada'); }]]);
+function accArchive(id){
+  const a=byId(accounts,id); if(!a) return;
+  a.archived=true; a._m=nowMs();
+  saveAccounts(); accClear(); renderAccounts();
+  toast(`“${a.alias||a.user}” archivada · la ves en Archivados`);
+}
+function accRestore(id){
+  const a=byId(accounts,id); if(!a) return;
+  a.archived=false; a._m=nowMs();
+  saveAccounts(); renderAccounts(); toast(`“${a.alias||a.user}” restaurada`);
 }
 async function copyText(t){
   try{ await navigator.clipboard.writeText(t); return true; }
@@ -1220,8 +1282,8 @@ async function copyText(t){
     finally{ ta.remove(); }
   }
 }
-async function chipCopy(el,i,field,label){
-  const v=accounts[i][field]||'';
+async function chipCopy(el,id,field,label){
+  const a=byId(accounts,id); const v=(a&&a[field])||'';
   if(!v) return toast(`${label} vacío, nada que copiar`);
   if(await copyText(v)){
     const orig=el.dataset.text;
@@ -1234,8 +1296,10 @@ async function chipCopy(el,i,field,label){
 const short=(s,n=24)=>s.length<=n?s:s.slice(0,n-1)+'…';
 function renderAccounts(){
   const list=$('acc-list');
-  $('acc-empty').style.display=accounts.length?'none':'block';
-  list.innerHTML=accounts.map((a,i)=>{
+  const act=active(accounts);
+  $('acc-empty').style.display=act.length?'none':'block';
+  list.innerHTML=act.map(a=>{
+    const i=a.id;
     const alias=a.alias||a.user||'(sin alias)';
     const ini=esc((alias.trim()[0]||'?').toUpperCase());
     const u=a.user?short(a.user):'(sin usuario)';
@@ -1248,19 +1312,21 @@ function renderAccounts(){
         <div class="sub">clic en un dato para copiar</div>
       </div>
       <div class="chips">
-        <button class="chip chip-user" data-text="${esc(u)}" onclick="chipCopy(this,${i},'user','Usuario')">${copyIco}<span>${esc(u)}</span></button>
-        <button class="chip chip-pass" data-text="${esc(p)}" onclick="chipCopy(this,${i},'password','Contraseña')">${copyIco}<span>${esc(p)}</span></button>
+        <button class="chip chip-user" data-text="${esc(u)}" onclick="chipCopy(this,'${i}','user','Usuario')">${copyIco}<span>${esc(u)}</span></button>
+        <button class="chip chip-pass" data-text="${esc(p)}" onclick="chipCopy(this,'${i}','password','Contraseña')">${copyIco}<span>${esc(p)}</span></button>
       </div>
       <div class="acc-actions">
-        <button class="btn-icon" title="Editar" onclick="accEdit(${i})">
+        <button class="btn-icon" title="Editar" onclick="accEdit('${i}')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
         </button>
-        <button class="btn-icon danger" title="Eliminar" onclick="accDel(${i})">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg>
+        <button class="btn-icon" title="Archivar" onclick="accArchive('${i}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
         </button>
       </div>
     </div>`;
   }).join('');
+  renderArchived('acc-archived', archivedOf(accounts), 'accRestore',
+    a=>esc(a.alias||a.user||'(sin alias)'));
 }
 
 /* ================= calculadora de nivel ================= */
