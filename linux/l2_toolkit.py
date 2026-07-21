@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.3.3"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -143,23 +143,6 @@ def rclone_ready():
     return _rclone_state["ok"]
 
 
-def _rclone_sync_async():
-    """Sube los JSON a Google Drive en segundo plano (no bloquea la app)."""
-    if not rclone_ready() or _data_is_empty():
-        return  # nunca subir un estado vacio sobre la nube
-    exe = _rclone_exe()
-    dest = f"{RCLONE_REMOTE}:{BACKUP_FOLDER_NAME}"
-    try:
-        subprocess.Popen([exe, "copy", data_dir(), dest, "--include", "*.json"],
-                         creationflags=_NO_WINDOW)
-        # snapshot diario con fecha (red de seguridad ante sobrescrituras)
-        day = datetime.date.today().isoformat()
-        subprocess.Popen([exe, "copy", data_dir(), f"{dest}/versions/{day}",
-                          "--include", "*.json"], creationflags=_NO_WINDOW)
-    except OSError:
-        pass
-
-
 def cloud_backup_target():
     """Carpeta local sincronizada por una app de nube, si existe."""
     user = os.path.expanduser("~")
@@ -179,33 +162,151 @@ def cloud_backup_target():
     return None, None
 
 
-def _backup(path):
-    """Respaldo best-effort: rclone a Google Drive + copia a carpeta de nube local."""
-    if _data_is_empty():
-        return  # no clonar un estado vacio a la nube
+# --------------------------------------------------------------------------- #
+# Sincronizacion tipo UNION: la nube NUNCA pierde datos.
+# Cada respaldo sube la union de (local + nube). Una PC con menos datos ya no
+# puede borrar lo de otra. No modifica lo local (respeta lo que borraste aqui);
+# para traer lo que falte de la nube se usa "Combinar" en la interfaz.
+# --------------------------------------------------------------------------- #
+def _spot_key(s):
+    return json.dumps([s.get("spot"), s.get("party"), s.get("minutes"),
+                       s.get("exp"), s.get("adena")], sort_keys=True)
+
+
+def _acc_key(a):
+    return json.dumps([a.get("alias"), a.get("user"), a.get("password")])
+
+
+def _union(local, cloud, keyfn):
+    out = list(local) if isinstance(local, list) else []
+    seen = {keyfn(x) for x in out}
+    for x in (cloud if isinstance(cloud, list) else []):
+        k = keyfn(x)
+        if k not in seen:
+            out.append(x)
+            seen.add(k)
+    return out
+
+
+def _merge_settings(local, cloud):
+    local = local if isinstance(local, dict) else {}
+    cloud = cloud if isinstance(cloud, dict) else {}
+    merged = dict(cloud)
+    merged.update(local)  # escalares (nivel, %, etc.): gana lo local
+    ov = dict(cloud.get("lvlOverrides", {}))
+    ov.update(local.get("lvlOverrides", {}))
+    merged["lvlOverrides"] = ov
+    recs = list(local.get("recipes", []))
+    names = {r.get("name") for r in recs}
+    for r in cloud.get("recipes", []):
+        if r.get("name") not in names:
+            recs.append(r)
+            names.add(r.get("name"))
+    merged["recipes"] = recs
+    return merged
+
+
+def _read_json_dir(folder, name, default):
     try:
-        dest, _ = cloud_backup_target()
-        if dest and os.path.exists(path):
-            os.makedirs(dest, exist_ok=True)
-            shutil.copy2(path, os.path.join(dest, os.path.basename(path)))
-    except OSError:
-        pass
-    _rclone_sync_async()
+        with open(os.path.join(folder, name), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return default
+
+
+_sync_lock = threading.Lock()
+_sync_pending = threading.Event()
+
+
+def _sync_to_cloud():
+    """Sube a la nube la UNION de lo local con lo que ya hay en la nube."""
+    if _data_is_empty():
+        return
+    import tempfile
+    base = os.path.join(tempfile.gettempdir(), "l2tool_sync")
+    pull = os.path.join(base, "pull")
+    push = os.path.join(base, "push")
+    os.makedirs(push, exist_ok=True)
+
+    local_spots = _load(SPOTS_FILE)
+    local_acc = _load(ACCOUNTS_FILE)
+    local_set = _load(SETTINGS_FILE)
+
+    exe = _rclone_exe()
+    dest = f"{RCLONE_REMOTE}:{BACKUP_FOLDER_NAME}"
+    cloud_spots, cloud_acc, cloud_set = [], [], {}
+    have_rclone = rclone_ready()
+    if have_rclone:
+        try:
+            os.makedirs(pull, exist_ok=True)
+            subprocess.run([exe, "copy", dest, pull, "--include", "*.json"],
+                           capture_output=True, timeout=60, creationflags=_NO_WINDOW)
+            cloud_spots = _read_json_dir(pull, "l2_spots.json", [])
+            cloud_acc = _read_json_dir(pull, "l2_accounts.json", [])
+            cloud_set = _read_json_dir(pull, "l2_settings.json", {})
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+    od, _ = cloud_backup_target()
+    if od and os.path.isdir(od):  # unir tambien lo de la carpeta de nube local
+        cloud_spots = _union(cloud_spots, _read_json_dir(od, "l2_spots.json", []), _spot_key)
+        cloud_acc = _union(cloud_acc, _read_json_dir(od, "l2_accounts.json", []), _acc_key)
+        cloud_set = _merge_settings(cloud_set, _read_json_dir(od, "l2_settings.json", {}))
+
+    merged = {
+        "l2_spots.json": _union(local_spots, cloud_spots, _spot_key),
+        "l2_accounts.json": _union(local_acc, cloud_acc, _acc_key),
+        "l2_settings.json": _merge_settings(local_set, cloud_set),
+    }
+    for name, data in merged.items():
+        try:
+            with open(os.path.join(push, name), "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except OSError:
+            return
+
+    if have_rclone:
+        try:
+            subprocess.run([exe, "copy", push, dest, "--include", "*.json"],
+                           capture_output=True, timeout=60, creationflags=_NO_WINDOW)
+            day = datetime.date.today().isoformat()
+            subprocess.Popen([exe, "copy", push, f"{dest}/versions/{day}",
+                              "--include", "*.json"], creationflags=_NO_WINDOW)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    if od:
+        try:
+            os.makedirs(od, exist_ok=True)
+            for name in merged:
+                shutil.copy2(os.path.join(push, name), os.path.join(od, name))
+        except OSError:
+            pass
+
+
+def _sync_worker():
+    if not _sync_lock.acquire(blocking=False):
+        return  # ya hay una sync corriendo; procesara lo pendiente
+    try:
+        while _sync_pending.is_set():
+            _sync_pending.clear()
+            _sync_to_cloud()
+    finally:
+        _sync_lock.release()
+
+
+def _trigger_sync():
+    if _data_is_empty():
+        return
+    _sync_pending.set()
+    threading.Thread(target=_sync_worker, daemon=True).start()
+
+
+def _backup(path):
+    _trigger_sync()
 
 
 def backup_all_now():
-    if _data_is_empty():
-        return  # no clonar un estado vacio a la nube
-    try:
-        dest, _ = cloud_backup_target()
-        if dest:
-            os.makedirs(dest, exist_ok=True)
-            for f in (SPOTS_FILE, ACCOUNTS_FILE, SETTINGS_FILE):
-                if os.path.exists(f):
-                    shutil.copy2(f, os.path.join(dest, os.path.basename(f)))
-    except OSError:
-        pass
-    _rclone_sync_async()
+    _trigger_sync()
 
 
 # Constantes de dialogo compatibles con pywebview 4/5/6
