@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -256,6 +256,46 @@ class Api:
         if kind:
             return {"ok": True, "kind": kind}
         return {"ok": False, "error": "No hay un destino de nube configurado"}
+
+    def fetch_cloud_data(self):
+        """
+        Trae los datos de la nube a una carpeta temporal y los DEVUELVE sin
+        tocar lo local (para poder combinarlos desde la interfaz).
+        """
+        import tempfile
+        tmp = os.path.join(tempfile.gettempdir(), "l2tool_cloud_fetch")
+        os.makedirs(tmp, exist_ok=True)
+        got = False
+        if rclone_ready():
+            try:
+                subprocess.run(
+                    [_rclone_exe(), "copy", f"{RCLONE_REMOTE}:{BACKUP_FOLDER_NAME}",
+                     tmp, "--include", "*.json"],
+                    capture_output=True, timeout=90, creationflags=_NO_WINDOW,
+                )
+                got = True
+            except (OSError, subprocess.SubprocessError) as e:
+                return {"ok": False, "error": str(e)}
+        else:
+            dest, _ = cloud_backup_target()
+            if dest and os.path.isdir(dest):
+                for name in ("l2_spots.json", "l2_accounts.json", "l2_settings.json"):
+                    src = os.path.join(dest, name)
+                    if os.path.exists(src):
+                        try:
+                            shutil.copy2(src, os.path.join(tmp, name))
+                        except OSError:
+                            pass
+                got = True
+        if not got:
+            return {"ok": False, "error": "No hay respaldo en la nube"}
+        settings = _load(os.path.join(tmp, "l2_settings.json"))
+        return {
+            "ok": True,
+            "spots": _load(os.path.join(tmp, "l2_spots.json")),
+            "accounts": _load(os.path.join(tmp, "l2_accounts.json")),
+            "settings": settings if isinstance(settings, dict) else {},
+        }
 
     def restore_from_cloud(self):
         """Trae los datos desde la nube y SOBRESCRIBE los locales (sincronización)."""

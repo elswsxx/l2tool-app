@@ -164,7 +164,8 @@
     animation:pop .2s ease}
   @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
   .modal h4{font-size:16px;margin-bottom:8px}
-  .modal p{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:20px}
+  .modal p{color:var(--muted);font-size:13.5px;line-height:1.5;margin-bottom:20px;white-space:pre-line}
+  .modal .row{flex-wrap:wrap}
   .modal .row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
   .btn-danger{background:linear-gradient(135deg,#dc2626,#ef4444)}
   .btn-danger:hover{filter:brightness(1.15);box-shadow:0 4px 14px rgba(239,68,68,.4)}
@@ -693,18 +694,56 @@ async function backupNow(){
 }
 
 function restoreCloud(){
-  modal('Restaurar desde la nube',
-    'Esto traerá tus datos de la nube y REEMPLAZARÁ los que tienes en esta PC (spots, cuentas, calibraciones y recetas). Úsalo si cambiaste de PC o reinstalaste. ¿Continuar?',
+  modal('Sincronizar desde la nube',
+    'Elige cómo traer tus datos de Google Drive:\n\n• COMBINAR: une lo de la nube con lo que ya tienes en esta PC. No borra nada (recomendado).\n\n• REEMPLAZAR TODO: descarta lo local y deja exactamente lo de la nube (úsalo solo si esta PC tiene datos malos).',
     [['Cancelar','btn-ghost',null],
-     ['Restaurar','btn-primary',doRestore]]);
+     ['Reemplazar todo','btn-ghost',doRestore],
+     ['Combinar','btn-primary',restoreMerge]]);
 }
+
+async function restoreMerge(){
+  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Combinando...';
+  try{
+    const r=await api().fetch_cloud_data();
+    if(!r||!r.ok){ toast(''+((r&&r.error)||'No se pudo leer la nube')); return; }
+    const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
+
+    // spots: unir sin duplicar (clave = todos los campos)
+    const sk=s=>`${s.spot}|${s.party}|${s.minutes}|${s.exp}|${s.adena}`;
+    const seen=new Set(spots.map(sk)); let addS=0;
+    cs.forEach(s=>{ if(!seen.has(sk(s))){ spots.push(s); seen.add(sk(s)); addS++; } });
+
+    // cuentas: unir sin duplicar
+    const ak=a=>`${a.alias}|${a.user}|${a.password}`;
+    const aseen=new Set(accounts.map(ak)); let addA=0;
+    ca.forEach(a=>{ if(!aseen.has(ak(a))){ accounts.push(a); aseen.add(ak(a)); addA++; } });
+
+    // settings: unir calibraciones y recetas; lo local gana en conflictos
+    settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
+    const recs=settings.recipes||[]; const rseen=new Set(recs.map(x=>x.name)); let addR=0;
+    (cset.recipes||[]).forEach(x=>{ if(!rseen.has(x.name)){ recs.push(x); rseen.add(x.name); addR++; } });
+    settings.recipes=recs;
+
+    saveSpots(); saveAccounts(); persistSettings();
+    renderSpots(); renderAccounts(); renderEcoList(); calibRender(); lvlCalc();
+    toast(`Combinado: +${addS} spot(s), +${addA} cuenta(s), +${addR} receta(s) de la nube`);
+  }catch(e){ toast('Error al combinar'); }
+  btn.disabled=false; btn.textContent=o;
+}
+
 async function doRestore(){
+  modal('Reemplazar con lo de la nube',
+    'Se DESCARTARÁ todo lo que tienes en esta PC y quedará exactamente lo de la nube. ¿Seguro?',
+    [['Cancelar','btn-ghost',null],
+     ['Sí, reemplazar','btn-danger',doRestoreConfirmed]]);
+}
+async function doRestoreConfirmed(){
   const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Restaurando...';
   try{
     const r=await api().restore_from_cloud();
     if(r&&r.ok){
-      toast(`Datos restaurados desde ${r.kind}`);
-      await loadAll();   // recargar todo con los datos restaurados
+      toast(`Datos reemplazados con los de ${r.kind}`);
+      await loadAll();
     }else{
       toast(''+((r&&r.error)||'No se pudo restaurar'));
     }
