@@ -1,4 +1,4 @@
 {
-  "version": "1.3.3",
-  "notes": "Sincronización a prueba de pérdidas (importante):\n• Ahora el respaldo sube la UNIÓN de lo local + lo de la nube. La nube nunca pierde datos aunque otra PC tenga menos.\n• Varias PC pueden usar la misma cuenta sin pisarse.\n• Snapshots diarios de seguridad se mantienen.\nRecomendado: actualiza TODAS tus PC a esta versión."
+  "version": "1.3.4",
+  "notes": "• Instalador de verdad para Windows: rclone viene incluido, todo listo para funcionar (ya no depende de winget).\n• Historial LOCAL automático: cada guardado se conserva con fecha en tu PC (tercera capa de respaldo, funciona sin internet).\n• Si rclone faltara, la app lo descarga sola."
 }

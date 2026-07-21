@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.3.4"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -80,12 +80,44 @@ def _load(path):
         return []
 
 
+def _local_snapshot(path):
+    """
+    Historial LOCAL (independiente de la nube): guarda una copia con fecha en
+    data_dir/versions/ cada vez que el contenido cambia, y mantiene las 40 mas
+    recientes por archivo. Es la ultima red de seguridad, funciona sin internet.
+    """
+    try:
+        vdir = os.path.join(data_dir(), "versions")
+        os.makedirs(vdir, exist_ok=True)
+        stem = os.path.splitext(os.path.basename(path))[0]
+        prev = sorted(g for g in os.listdir(vdir) if g.startswith(stem + "."))
+        if prev:  # no duplicar si el ultimo snapshot es identico
+            last = os.path.join(vdir, prev[-1])
+            try:
+                with open(last, "rb") as a, open(path, "rb") as b:
+                    if a.read() == b.read():
+                        return
+            except OSError:
+                pass
+        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        shutil.copy2(path, os.path.join(vdir, f"{stem}.{ts}.json"))
+        keep = sorted(g for g in os.listdir(vdir) if g.startswith(stem + "."))
+        for old in keep[:-40]:
+            try:
+                os.remove(os.path.join(vdir, old))
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
 def _save(path, data):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except OSError:
         return False
+    _local_snapshot(path)
     _backup(path)
     return True
 
@@ -113,14 +145,48 @@ def _data_is_empty():
 
 
 def _rclone_exe():
-    exe = shutil.which("rclone")
+    name = "rclone.exe" if IS_WINDOWS else "rclone"
+    here = os.path.dirname(sys.executable if getattr(sys, "frozen", False)
+                           else os.path.abspath(__file__))
+    for cand in (os.path.join(here, name),        # junto al exe (lo pone el instalador)
+                 resource_path(name),             # empaquetado en el onefile
+                 os.path.join(data_dir(), name)):  # descargado por la app
+        if os.path.isfile(cand):
+            return cand
+    exe = shutil.which("rclone")                  # rclone del sistema
     if exe:
         return exe
     if IS_WINDOWS:
         link = os.path.join(os.environ.get("LOCALAPPDATA", ""),
                             "Microsoft", "WinGet", "Links", "rclone.exe")
-        return link if os.path.isfile(link) else None
+        if os.path.isfile(link):
+            return link
     return None
+
+
+def _ensure_rclone():
+    """Si no hay rclone, lo descarga desde rclone.org a data_dir (fallback)."""
+    exe = _rclone_exe()
+    if exe or not IS_WINDOWS:
+        return exe
+    import tempfile
+    import zipfile
+    url = "https://downloads.rclone.org/rclone-current-windows-amd64.zip"
+    try:
+        tmpzip = os.path.join(tempfile.gettempdir(), "l2_rclone_dl.zip")
+        req = urllib.request.Request(url, headers={"User-Agent": "L2Toolkit"})
+        with urllib.request.urlopen(req, timeout=180) as r, open(tmpzip, "wb") as f:
+            shutil.copyfileobj(r, f)
+        with zipfile.ZipFile(tmpzip) as z:
+            member = next((m for m in z.namelist() if m.endswith("rclone.exe")), None)
+            if not member:
+                return None
+            with z.open(member) as src, \
+                    open(os.path.join(data_dir(), "rclone.exe"), "wb") as dst:
+                shutil.copyfileobj(src, dst)
+    except Exception:
+        return None
+    return _rclone_exe()
 
 
 _rclone_state = {"checked": False, "ok": False}
@@ -455,24 +521,15 @@ class Api:
 
     def connect_drive(self):
         """
-        Conecta el Google Drive DEL USUARIO: instala rclone si falta (Windows) y
-        abre el navegador para que autorice su cuenta (permiso drive.file).
+        Conecta el Google Drive DEL USUARIO. rclone ya viene con la app (lo pone
+        el instalador); si faltara, se descarga solo. Abre el navegador para que
+        el usuario autorice su cuenta (permiso mínimo drive.file).
         """
-        exe = _rclone_exe()
-        if not exe and IS_WINDOWS:
-            try:
-                subprocess.run(
-                    ["winget", "install", "Rclone.Rclone", "--silent",
-                     "--accept-source-agreements", "--accept-package-agreements"],
-                    capture_output=True, timeout=300, creationflags=_NO_WINDOW,
-                )
-            except (OSError, subprocess.SubprocessError):
-                pass
-            exe = _rclone_exe()
+        exe = _ensure_rclone()
         if not exe:
-            hint = ("Instálalo desde rclone.org" if IS_WINDOWS
+            hint = ("No se pudo obtener rclone automáticamente." if IS_WINDOWS
                     else "En Ubuntu: sudo apt install rclone")
-            return {"ok": False, "error": f"rclone no está instalado. {hint}"}
+            return {"ok": False, "error": hint}
         try:
             subprocess.run(
                 [exe, "config", "create", RCLONE_REMOTE, "drive", "scope=drive.file"],

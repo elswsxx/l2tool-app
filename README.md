@@ -2,39 +2,41 @@
 
 Herramientas de escritorio para Lineage 2: calculadora de spots de farmeo,
 calculadora de nivel calibrable a tu servidor, calculadora económica de crafteo
-y gestor de cuentas. Con respaldo/sincronización a tu Google Drive.
+y gestor de cuentas. Con respaldo y sincronización a tu Google Drive.
 
-## 🪟 Windows
+## 🪟 Windows — Instalador (recomendado)
 
-**[⬇ Descargar L2 EXP Calculator.exe](https://github.com/elswsxx/l2tool-app/raw/main/L2%20EXP%20Calculator.exe)**
+**[⬇ Descargar L2Toolkit-Setup.exe](https://github.com/elswsxx/l2tool-app/raw/main/L2Toolkit-Setup.exe)**
 
-No requiere instalación: descarga el `.exe` y ábrelo. La app avisa e instala sola
-las nuevas versiones. Requiere Windows 10/11 (usa Edge WebView2, ya incluido).
+Descárgalo y ejecútalo. Instala todo lo necesario (incluye la sincronización con
+Google Drive lista para usar) y crea accesos en el menú de inicio y el escritorio.
+No requiere permisos de administrador.
+
+> Si Windows muestra "Windows protegió tu PC" (SmartScreen): **Más información →
+> Ejecutar de todas formas**. Es normal en apps sin firma de pago.
 
 ## 🐧 Ubuntu / Linux
 
-Abre una terminal y pega esta línea (instala dependencias, la app y un acceso en el menú):
+En una terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/elswsxx/l2tool-app/main/instalar-ubuntu.sh | bash
 ```
 
-Luego ejecuta `l2toolkit` o búscala en el menú de aplicaciones como **L2 Toolkit**.
-Requiere una distribución con WebKitGTK (Ubuntu 20.04+ y derivadas). El instalador
-lo resuelve solo.
+Instala dependencias, la app y un acceso en el menú. Luego ejecuta `l2toolkit`.
 
 ## 🔄 Actualizaciones
 
-La app revisa este repositorio al abrir. Si hay una versión más nueva, muestra un
-aviso y — con un clic — se actualiza sola (reemplaza el binario en Windows, o los
-archivos de la app en Linux) y se reabre.
+La app se actualiza sola: al abrir, si hay una versión nueva, avisa y con un clic
+se instala y se reabre.
 
-## ☁ Tus datos
+## ☁ Tus datos y respaldo (a prueba de pérdidas)
 
-Se guardan en tu equipo:
-- Windows: `%APPDATA%\L2EXPCalculator\`
-- Linux: `~/.config/L2EXPCalculator/`
+Se guardan en tu equipo y se respaldan en **3 capas independientes**:
+1. **Historial local** con fecha en tu PC (funciona sin internet).
+2. **Google Drive** (opcional): Configuración → Conectar mi Google Drive. Usa tu
+   propia cuenta con permiso mínimo (la app solo ve sus propios archivos).
+3. **Snapshots diarios** en la nube.
 
-Con **Configuración → Conectar mi Google Drive** los respaldas y sincronizas en
-**tu** cuenta (permiso mínimo: la app solo ve sus propios archivos). Con **Restaurar
-desde la nube** los recuperas en otra PC.
+La sincronización es de tipo **unión**: la nube nunca pierde datos aunque uses
+varias PC con la misma cuenta.
