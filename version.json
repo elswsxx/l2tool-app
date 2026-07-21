@@ -1,4 +1,4 @@
 {
-  "version": "1.3.5",
-  "notes": "• Archivar en vez de borrar: al \"eliminar\" un spot, cuenta o receta, se archiva (no se pierde) y se sincroniza en todas tus PC.\n• Puedes ver y restaurar lo archivado en cada sección.\n• Sincronización por elemento: gana la versión más reciente, sin duplicados."
+  "version": "1.3.6",
+  "notes": "• Sincronización automática: la app trae los cambios de tus otras PC al abrir y cada 5 minutos, sin que hagas nada.\n• Aviso cuando llega algo nuevo desde otra PC."
 }

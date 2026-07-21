@@ -517,7 +517,7 @@
       </div>
       <div class="hint">Conecta <b>tu</b> cuenta de Google (permiso mínimo: la app solo ve sus propios archivos).
         <b>Respaldar</b> sube tus datos; <b>Restaurar</b> los trae de la nube y reemplaza los locales
-        (útil al cambiar de PC). También se respalda solo cada vez que guardas algo.</div>
+        (útil al cambiar de PC). Se respalda solo al guardar y trae cambios de tus otras PC cada 5 minutos.</div>
     </div>
 
     <div class="card">
@@ -670,6 +670,8 @@ async function loadAll(){
   renderEcoList();
   refreshBackupStatus();
   checkUpdates();
+  startAutoSync();                                  // revisa cada 5 min
+  setTimeout(()=>mergeFromCloud(true), 3000);       // y trae cambios al abrir
 }
 
 async function refreshBackupStatus(){
@@ -748,28 +750,48 @@ function restoreCloud(){
      ['Combinar','btn-primary',restoreMerge]]);
 }
 
-async function restoreMerge(){
-  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Combinando...';
-  try{
-    const r=await api().fetch_cloud_data();
-    if(!r||!r.ok){ toast(''+((r&&r.error)||'No se pudo leer la nube')); return; }
-    const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
-    ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC); ensureIds(cset.recipes||[],KEY_REC);
+/* firma del estado para detectar si un merge cambió algo (evita loops de sync) */
+function stateSig(){
+  const s=l=>(l||[]).map(x=>`${x.id}@${x._m||0}@${x.archived?1:0}`).sort().join(',');
+  const ov=Object.keys(settings.lvlOverrides||{}).sort().map(k=>k+':'+settings.lvlOverrides[k]).join(',');
+  return s(spots)+'||'+s(accounts)+'||'+s(settings.recipes||[])+'||'+ov;
+}
 
-    // fusion por id: para el mismo id gana la version mas nueva (_m).
-    // Asi se traen los que faltan y se respeta el archivado mas reciente.
-    const before=spots.length+accounts.length+(settings.recipes||[]).length;
-    spots=mergeById(spots,cs);
-    accounts=mergeById(accounts,ca);
-    settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
-    settings.recipes=mergeById(settings.recipes||[],cset.recipes||[]);
-    const added=(spots.length+accounts.length+settings.recipes.length)-before;
-
+/* núcleo: trae de la nube y fusiona por id. silent=true para el auto-sync. */
+async function mergeFromCloud(silent){
+  if(!api()) return false;
+  let r;
+  try{ r=await api().fetch_cloud_data(); }
+  catch(e){ if(!silent) toast('Error al leer la nube'); return false; }
+  if(!r||!r.ok){ if(!silent) toast(''+((r&&r.error)||'No se pudo leer la nube')); return false; }
+  const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
+  ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC); ensureIds(cset.recipes||[],KEY_REC);
+  const before=stateSig();
+  spots=mergeById(spots,cs);
+  accounts=mergeById(accounts,ca);
+  settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
+  settings.recipes=mergeById(settings.recipes||[],cset.recipes||[]);
+  const changed=stateSig()!==before;
+  if(changed){
     saveSpots(); saveAccounts(); persistSettings();
     renderSpots(); renderAccounts(); renderEcoList(); calibRender(); lvlCalc();
-    toast(`Combinado con la nube · ${added>0?('+'+added+' elemento(s) nuevo(s)'):'todo estaba al día'}`);
-  }catch(e){ toast('Error al combinar'); }
+  }
+  if(!silent) toast(changed?'Combinado con la nube':'Todo estaba al día');
+  else if(changed) toast('Sincronizado con tus otras PC');
+  return changed;
+}
+
+async function restoreMerge(){
+  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Combinando...';
+  await mergeFromCloud(false);
   btn.disabled=false; btn.textContent=o;
+}
+
+/* auto-sync: al abrir y cada 5 minutos, trae cambios de tus otras PC */
+let autoSyncInt=null;
+function startAutoSync(){
+  clearInterval(autoSyncInt);
+  autoSyncInt=setInterval(()=>mergeFromCloud(true), 5*60*1000);
 }
 
 async function doRestore(){
