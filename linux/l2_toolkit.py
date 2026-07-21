@@ -8,6 +8,7 @@ Los datos viven en %APPDATA%\\L2EXPCalculator (Windows) o
 ~/.config/L2EXPCalculator (Linux).
 """
 
+import datetime
 import json
 import os
 import shutil
@@ -21,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -98,6 +99,19 @@ BACKUP_FOLDER_NAME = "L2Toolkit Backup"
 RCLONE_REMOTE = "gdrive"
 
 
+def _data_is_empty():
+    """
+    True si no hay NADA guardado (0 spots y 0 cuentas). Se usa para NUNCA
+    respaldar un estado vacio sobre la nube: asi una instalacion nueva no
+    puede borrar el respaldo bueno de otra PC.
+    """
+    spots = _load(SPOTS_FILE)
+    accounts = _load(ACCOUNTS_FILE)
+    n_spots = len(spots) if isinstance(spots, list) else 0
+    n_acc = len(accounts) if isinstance(accounts, list) else 0
+    return n_spots == 0 and n_acc == 0
+
+
 def _rclone_exe():
     exe = shutil.which("rclone")
     if exe:
@@ -131,14 +145,17 @@ def rclone_ready():
 
 def _rclone_sync_async():
     """Sube los JSON a Google Drive en segundo plano (no bloquea la app)."""
-    if not rclone_ready():
-        return
+    if not rclone_ready() or _data_is_empty():
+        return  # nunca subir un estado vacio sobre la nube
+    exe = _rclone_exe()
+    dest = f"{RCLONE_REMOTE}:{BACKUP_FOLDER_NAME}"
     try:
-        subprocess.Popen(
-            [_rclone_exe(), "copy", data_dir(),
-             f"{RCLONE_REMOTE}:{BACKUP_FOLDER_NAME}", "--include", "*.json"],
-            creationflags=_NO_WINDOW,
-        )
+        subprocess.Popen([exe, "copy", data_dir(), dest, "--include", "*.json"],
+                         creationflags=_NO_WINDOW)
+        # snapshot diario con fecha (red de seguridad ante sobrescrituras)
+        day = datetime.date.today().isoformat()
+        subprocess.Popen([exe, "copy", data_dir(), f"{dest}/versions/{day}",
+                          "--include", "*.json"], creationflags=_NO_WINDOW)
     except OSError:
         pass
 
@@ -164,6 +181,8 @@ def cloud_backup_target():
 
 def _backup(path):
     """Respaldo best-effort: rclone a Google Drive + copia a carpeta de nube local."""
+    if _data_is_empty():
+        return  # no clonar un estado vacio a la nube
     try:
         dest, _ = cloud_backup_target()
         if dest and os.path.exists(path):
@@ -175,6 +194,8 @@ def _backup(path):
 
 
 def backup_all_now():
+    if _data_is_empty():
+        return  # no clonar un estado vacio a la nube
     try:
         dest, _ = cloud_backup_target()
         if dest:
@@ -323,8 +344,12 @@ class Api:
 
         _rclone_state["checked"] = False  # re-detectar
         if rclone_ready():
+            if _data_is_empty():
+                # PC nueva sin datos: TRAE los de la nube (no subas vacio encima)
+                r = self.restore_from_cloud()
+                return {"ok": True, "pulled": bool(r.get("ok"))}
             backup_all_now()
-            return {"ok": True}
+            return {"ok": True, "pulled": False}
         return {"ok": False, "error": "La autorización no se completó"}
 
     def check_update(self):

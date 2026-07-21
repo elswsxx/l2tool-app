@@ -667,8 +667,16 @@ async function connectDrive(){
   toast('Se abrirá tu navegador: elige TU cuenta de Google y presiona Permitir');
   try{
     const r=await api().connect_drive();
-    toast(r&&r.ok ? '¡Google Drive conectado! Respaldo automático activo'
-                  : ''+((r&&r.error)||'No se pudo conectar'));
+    if(r&&r.ok){
+      if(r.pulled){
+        toast('Google Drive conectado. Traje tus datos de la nube.');
+        await loadAll();   // esta PC estaba vacía: recargar los datos traídos
+      }else{
+        toast('¡Google Drive conectado! Respaldo automático activo');
+      }
+    }else{
+      toast(''+((r&&r.error)||'No se pudo conectar'));
+    }
   }catch(e){ toast('Error al conectar'); }
   btn.disabled=false;
   btn.textContent=orig;

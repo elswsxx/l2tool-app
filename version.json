@@ -1,4 +1,4 @@
 {
-  "version": "1.3.0",
-  "notes": "• Nueva sección Configuración con sincronización a Google Drive de doble vía (Respaldar y Restaurar).\n• Nuevo diseño: color azul marino e iconos vectoriales (sin emojis).\n• Puntaje simplificado (EXP/h relativo al mejor spot).\n• Versión para Ubuntu/Linux disponible."
+  "version": "1.3.1",
+  "notes": "Corrección importante de sincronización:\n• El respaldo ya NUNCA sube un estado vacío sobre la nube (una instalación nueva no puede borrar tus datos).\n• Al conectar Google Drive en una PC nueva sin datos, ahora TRAE tus datos de la nube en vez de subir vacío.\n• Copias con fecha en la nube (carpeta versions/) como red de seguridad."
 }
