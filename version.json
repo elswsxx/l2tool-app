@@ -1,4 +1,4 @@
 {
-  "version": "1.3.9",
-  "notes": "• Corrige definitivamente el error \"Failed to load Python DLL\" al abrir/actualizar: la app ya no se descomprime a una carpeta temporal (que el antivirus podía bloquear). Arranque más rápido y estable."
+  "version": "1.4.0",
+  "notes": "• Versión de prueba del sistema de actualización (ya sin el error de DLL).\n• Detalle: la sección Configuración indica que la sincronización es automática cada 5 minutos."
 }
