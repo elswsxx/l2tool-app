@@ -1,4 +1,4 @@
 {
-  "version": "1.3.6",
-  "notes": "• Sincronización automática: la app trae los cambios de tus otras PC al abrir y cada 5 minutos, sin que hagas nada.\n• Aviso cuando llega algo nuevo desde otra PC."
+  "version": "1.3.7",
+  "notes": "• Corrige el error de DLL al actualizar: ahora la actualización usa el instalador y reemplaza todo de forma limpia.\n• Incluye la sincronización automática (al abrir y cada 5 minutos) de la versión anterior."
 }

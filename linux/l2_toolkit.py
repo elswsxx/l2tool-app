@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.6"
+APP_VERSION = "1.3.7"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -615,33 +615,37 @@ class Api:
         return {"ok": True}
 
     def _install_update_windows(self):
+        """
+        Descarga el INSTALADOR y lo corre en silencio (reemplaza todo limpiamente,
+        sin el frágil intercambio del exe onefile que causaba el error de DLL).
+        Luego reabre la app.
+        """
         cur = sys.executable
         tmpdir = os.environ.get("TEMP", os.path.dirname(cur))
-        new_exe = os.path.join(tmpdir, "l2tool_new.exe")
-        url = f"{RELEASES_RAW}/{EXE_NAME.replace(' ', '%20')}"
+        setup = os.path.join(tmpdir, "l2tool_setup.exe")
+        url = f"{RELEASES_RAW}/L2Toolkit-Setup.exe"
 
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "L2Toolkit"})
-            with urllib.request.urlopen(req, timeout=120) as r, open(new_exe, "wb") as f:
+            with urllib.request.urlopen(req, timeout=180) as r, open(setup, "wb") as f:
                 shutil.copyfileobj(r, f)
         except Exception as e:
             return {"ok": False, "error": f"No se pudo descargar: {e}"}
 
-        if not os.path.exists(new_exe) or os.path.getsize(new_exe) < 1_000_000:
+        if not os.path.exists(setup) or os.path.getsize(setup) < 1_000_000:
             return {"ok": False, "error": "La descarga quedó incompleta"}
 
         bat = os.path.join(tmpdir, "l2tool_update.bat")
         pid = os.getpid()
         script = (
             "@echo off\r\n"
-            "chcp 65001 >NUL\r\n"
             ":wait\r\n"
             f'tasklist /FI "PID eq {pid}" 2>NUL | find "{pid}" >NUL\r\n'
             "if not errorlevel 1 (\r\n"
             "  timeout /t 1 /nobreak >NUL\r\n"
             "  goto wait\r\n"
             ")\r\n"
-            f'move /Y "{new_exe}" "{cur}" >NUL\r\n'
+            f'"{setup}" /VERYSILENT /NORESTART /SUPPRESSMSGBOXES\r\n'
             f'start "" "{cur}"\r\n'
             'del "%~f0"\r\n'
         )
@@ -652,7 +656,6 @@ class Api:
         except OSError as e:
             return {"ok": False, "error": f"No se pudo iniciar la instalación: {e}"}
 
-        # cerrar la app en medio segundo para que el script pueda reemplazar el exe
         threading.Timer(0.6, lambda: os._exit(0)).start()
         return {"ok": True}
 
