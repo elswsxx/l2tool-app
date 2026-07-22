@@ -1,4 +1,4 @@
 {
-  "version": "1.3.8",
-  "notes": "• Al conectar Google Drive, ahora aparece una pantalla de \"¡Conectado!\" bonita y branded (en vez de la página gris de rclone)."
+  "version": "1.3.9",
+  "notes": "• Corrige definitivamente el error \"Failed to load Python DLL\" al abrir/actualizar: la app ya no se descomprime a una carpeta temporal (que el antivirus podía bloquear). Arranque más rápido y estable."
 }
