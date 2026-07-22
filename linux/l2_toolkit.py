@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -426,16 +426,18 @@ sincronizan solos en tu Drive, de forma privada.</p>
 </div></body></html>"""
 
 
-def _open_success_page():
-    """Abre una pagina branded de 'Conectado' encima de la pagina de rclone."""
-    try:
-        import tempfile
-        p = os.path.join(tempfile.gettempdir(), "l2tool_conectado.html")
-        with open(p, "w", encoding="utf-8") as f:
-            f.write(_SUCCESS_HTML)
-        webbrowser.open("file:///" + p.replace("\\", "/"))
-    except Exception:
-        pass
+def _auth_template_path():
+    """
+    Escribe la pagina branded como template para el servidor de auth de rclone
+    (rclone authorize --template). Asi la pagina que el usuario ve tras aceptar
+    en Google es la NUESTRA, no la gris de rclone. HTML estatico = template Go
+    valido sin variables.
+    """
+    import tempfile
+    p = os.path.join(tempfile.gettempdir(), "l2tool_auth_page.html")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(_SUCCESS_HTML)
+    return p
 
 
 # --------------------------------------------------------------------------- #
@@ -584,19 +586,43 @@ class Api:
             hint = ("No se pudo obtener rclone automáticamente." if IS_WINDOWS
                     else "En Ubuntu: sudo apt install rclone")
             return {"ok": False, "error": hint}
+
+        # Paso 1: autorizar con NUESTRA pagina como respuesta del login
+        # (rclone authorize --template). El usuario ve una sola pagina, la bonita.
+        import base64
+        blob = base64.b64encode(
+            json.dumps({"scope": "drive.file"}).encode()).decode().rstrip("=")
         try:
-            subprocess.run(
-                [exe, "config", "create", RCLONE_REMOTE, "drive", "scope=drive.file"],
-                capture_output=True, timeout=300, creationflags=_NO_WINDOW,
+            out = subprocess.run(
+                [exe, "authorize", "drive", blob, "--template", _auth_template_path()],
+                capture_output=True, text=True, timeout=300, creationflags=_NO_WINDOW,
             )
         except subprocess.TimeoutExpired:
             return {"ok": False, "error": "Tiempo de espera agotado en la autorización"}
         except (OSError, subprocess.SubprocessError):
-            return {"ok": False, "error": "No se pudo iniciar la configuración de rclone"}
+            return {"ok": False, "error": "No se pudo iniciar la autorización"}
+
+        # el token JSON viene en stdout entre los marcadores de rclone
+        import re
+        m = re.search(r"--->\s*(\{.*?\})\s*<---", out.stdout or "", re.S)
+        if not m:
+            m = re.search(r"(\{\"access_token\".*?\})", out.stdout or "", re.S)
+        if not m:
+            return {"ok": False, "error": "La autorización no se completó"}
+        token = m.group(1).strip()
+
+        # Paso 2: crear el remoto con el token ya en mano (sin abrir nada mas)
+        try:
+            subprocess.run(
+                [exe, "config", "create", RCLONE_REMOTE, "drive",
+                 "scope=drive.file", f"token={token}", "--non-interactive"],
+                capture_output=True, timeout=60, creationflags=_NO_WINDOW,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return {"ok": False, "error": "No se pudo guardar la configuración"}
 
         _rclone_state["checked"] = False  # re-detectar
         if rclone_ready():
-            _open_success_page()  # pagina bonita encima de la de rclone
             if _data_is_empty():
                 # PC nueva sin datos: TRAE los de la nube (no subas vacio encima)
                 r = self.restore_from_cloud()

@@ -1,4 +1,4 @@
 {
-  "version": "1.4.0",
-  "notes": "• Versión de prueba del sistema de actualización (ya sin el error de DLL).\n• Detalle: la sección Configuración indica que la sincronización es automática cada 5 minutos."
+  "version": "1.4.1",
+  "notes": "• Al conectar Google Drive ahora ves UNA sola página, la de L2 Toolkit: la respuesta del login es directamente nuestra pantalla \"¡Conectado!\" (adiós a la página gris de rclone y a la pestaña extra)."
 }
