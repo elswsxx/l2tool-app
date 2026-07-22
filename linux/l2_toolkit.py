@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.3.7"
+APP_VERSION = "1.3.8"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -396,6 +396,48 @@ except AttributeError:  # pywebview < 5
     DIALOG_OPEN = webview.OPEN_DIALOG
 
 
+_SUCCESS_HTML = """<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+<title>L2 Toolkit · Conectado</title><style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+body{min-height:100vh;display:grid;place-items:center;
+ background:radial-gradient(1200px 600px at 50% -10%,#1f3a5f 0%,#0b0d12 60%);color:#e7eaf0}
+.card{text-align:center;padding:48px 44px;background:rgba(20,24,36,.7);
+ border:1px solid #2a3040;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.5);
+ backdrop-filter:blur(6px);max-width:440px;animation:pop .45s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.badge{width:84px;height:84px;margin:0 auto 22px;border-radius:24px;display:grid;place-items:center;
+ background:linear-gradient(135deg,#1f3a5f,#356ea5);box-shadow:0 10px 30px rgba(31,58,95,.6);
+ font-weight:800;font-size:30px;color:#fff}
+.check{width:70px;height:70px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;
+ background:linear-gradient(135deg,#16a34a,#22c55e);box-shadow:0 10px 30px rgba(34,197,94,.45)}
+.check svg{width:38px;height:38px;stroke:#fff;stroke-width:3;fill:none;
+ stroke-dasharray:48;stroke-dashoffset:48;animation:draw .5s .25s forwards ease}
+@keyframes draw{to{stroke-dashoffset:0}}
+h1{font-size:23px;font-weight:800;margin-bottom:10px}
+p{color:#9aa4b2;font-size:14.5px;line-height:1.6}
+.hint{margin-top:26px;font-size:12.5px;color:#5b8fc7;font-weight:600}
+</style></head><body><div class="card">
+<div class="badge">L2</div>
+<div class="check"><svg viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 6L9 17l-5-5"/></svg></div>
+<h1>¡Google Drive conectado!</h1>
+<p>Tu cuenta quedó vinculada a <b>L2 Toolkit</b>. Tus datos se respaldan y
+sincronizan solos en tu Drive, de forma privada.</p>
+<div class="hint">Ya puedes cerrar esta pestaña y volver a la app.</div>
+</div></body></html>"""
+
+
+def _open_success_page():
+    """Abre una pagina branded de 'Conectado' encima de la pagina de rclone."""
+    try:
+        import tempfile
+        p = os.path.join(tempfile.gettempdir(), "l2tool_conectado.html")
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(_SUCCESS_HTML)
+        webbrowser.open("file:///" + p.replace("\\", "/"))
+    except Exception:
+        pass
+
+
 # --------------------------------------------------------------------------- #
 # API expuesta a JavaScript
 # --------------------------------------------------------------------------- #
@@ -554,6 +596,7 @@ class Api:
 
         _rclone_state["checked"] = False  # re-detectar
         if rclone_ready():
+            _open_success_page()  # pagina bonita encima de la de rclone
             if _data_is_empty():
                 # PC nueva sin datos: TRAE los de la nube (no subas vacio encima)
                 r = self.restore_from_cloud()
