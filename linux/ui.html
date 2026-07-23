@@ -584,7 +584,7 @@
         <button class="btn btn-ghost" id="cfg-logout" onclick="logoutGoogle()" style="display:none">Salir</button>
       </div>
       <div class="hint">Entra con tu cuenta de Google: tus datos se guardan en el servidor, atados a tu cuenta,
-        y se sincronizan solos entre todas tus PC (al guardar y cada 5 minutos). Nada se pierde.</div>
+        y se sincronizan solos entre todas tus PC al instante (al guardar y al abrir la app). Nada se pierde.</div>
     </div>
 
     <div class="card">
@@ -599,7 +599,7 @@
       <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 16v-4M12 8h.01"/></svg>Acerca de</h3>
       <div style="font-size:13px;color:var(--muted);line-height:1.7">
         <div>L2 Toolkit · versión <b id="cfg-version" style="color:var(--text)">—</b></div>
-        <div style="margin-top:2px">Sincronización automática cada 5 minutos.</div>
+        <div style="margin-top:2px">Sincronización automática instantánea (al guardar y al volver a la app).</div>
         <div id="cfg-update-line" style="margin-top:4px">Buscando actualizaciones...</div>
       </div>
       <button class="btn btn-ghost" style="margin-top:12px" onclick="manualCheckUpdate()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Buscar actualizaciones</button>
@@ -804,11 +804,15 @@ function stateSig(){
 }
 
 /* sincroniza con TU servidor: sube lo local, recibe la unión y actualiza la UI */
+let _syncing=false, _lastSync=0;
 async function serverSync(silent){
   if(!api()) return false;
+  if(_syncing) return false;               // no solapar dos syncs
+  _syncing=true; _lastSync=Date.now();
   let r;
   try{ r=await api().server_sync(); }
   catch(e){ if(!silent) toast('Error de red'); return false; }
+  finally{ _syncing=false; }
   if(!r||!r.ok){
     if(r&&r.error==='session-expired'){ toast('Tu sesión expiró, entra de nuevo'); refreshAuthStatus(); }
     else if(r&&r.error==='no-session'){ if(!silent) toast('Entra con Google primero'); }
@@ -836,11 +840,20 @@ async function syncNow(){
   btn.disabled=false; btn.innerHTML=o;
 }
 
-/* auto-sync: al abrir y cada 5 minutos */
+/* auto-sync: casi instantáneo. Subir es inmediato (al guardar); para BAJAR los
+   cambios de otras PC revisamos cada 20s y, sobre todo, cada vez que vuelves a
+   la ventana (al hacer foco) — así siempre que la miras está al día. */
 let autoSyncInt=null;
 function startAutoSync(){
   clearInterval(autoSyncInt);
-  autoSyncInt=setInterval(()=>serverSync(true), 5*60*1000);
+  autoSyncInt=setInterval(()=>serverSync(true), 20*1000);
+  window.addEventListener('focus', onWake);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) onWake(); });
+}
+function onWake(){
+  // al volver a la ventana, sincroniza (pero no más de 1 vez cada 5s)
+  if(Date.now()-_lastSync < 5000) return;
+  serverSync(true);
 }
 
 async function manualCheckUpdate(){
