@@ -503,8 +503,7 @@
     <div class="card">
       <h3 id="cry-form-title">Ítem a cristalizar</h3>
       <div class="form-grid">
-        <div class="field" style="flex:1;min-width:160px"><label>Ítem</label><input id="cy-item" placeholder="Ej: Elven Earring" oninput="cryCalc()"></div>
-        <div class="field" style="width:150px"><label>Costo del ítem</label><input id="cy-cost" placeholder="95.268" oninput="cryCalc()"></div>
+        <div class="field" style="flex:1;min-width:160px"><label>Ítem final</label><input id="cy-item" placeholder="Ej: Elven Earring" oninput="cryCalc()"></div>
         <div class="field" style="width:140px"><label>Cristal que da</label>
           <select id="cy-crystal" onchange="cryCalc()">
             <option value="Cristal D">Cristal D</option>
@@ -514,13 +513,27 @@
             <option value="Cristal S">Cristal S</option>
           </select>
         </div>
-        <div class="field" style="width:130px"><label>Cantidad</label><input id="cy-qty" placeholder="169" oninput="cryCalc()"></div>
+        <div class="field" style="width:130px"><label>Cristales que da</label><input id="cy-qty" placeholder="169" oninput="cryCalc()"></div>
         <div class="field" style="width:150px"><label>Venta por cristal</label><input id="cy-sell" placeholder="564" oninput="cryCalc()"></div>
         <div class="field" style="width:120px"><label>Comisión %</label><input id="cy-fee" value="0" oninput="cryCalc()"></div>
+      </div>
+
+      <!-- Materiales para fabricar el ítem (uno o varios) -->
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line,rgba(255,255,255,.08))">
+        <label style="font-size:11.5px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Materiales para fabricarlo</label>
+        <div id="cy-mats"></div>
+        <button class="btn btn-ghost" onclick="cryAddMat()" style="margin-top:10px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/></svg>
+          Agregar material
+        </button>
+        <div style="margin-top:10px;font-size:14px">Costo total del ítem: <b id="cy-cost-total" style="color:var(--text)">—</b></div>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" id="cry-save-btn" onclick="crySave()">Guardar</button>
         <button class="btn btn-ghost" onclick="cryClear()">Nuevo</button>
       </div>
-      <div class="hint">Si el ítem da más de un tipo de cristal, registra una fila por cada tipo.</div>
+      <div class="hint">Suma uno o varios materiales (cada uno con su cantidad y costo unitario) — así el costo del ítem se calcula solo. Si el ítem da más de un tipo de cristal, registra una fila por cada tipo.</div>
     </div>
 
     <div class="card">
@@ -754,6 +767,7 @@ async function loadAll(){
   renderAccounts();
   renderEcoList();
   renderCryList();
+  if($('cy-mats')&&!$('cy-mats').children.length) cryAddMat();  // 1ra fila de material
   refreshAuthStatus();
   checkUpdates();
   startAutoSync();                                  // revisa cada 5 min
@@ -1331,15 +1345,57 @@ function calcCry(c){
   const margin=cost>0?profit/cost*100:null;
   return {costUnit,net,income,profit,margin};
 }
+/* ---- materiales (uno o varios) para fabricar el ítem ---- */
+function matRowHtml(){
+  return `<div class="field" style="flex:1;min-width:140px;margin:0"><input class="cy-mat-name" placeholder="Material (ej: Elven Earring)" oninput="cryCalc()"></div>
+    <div class="field" style="width:95px;margin:0"><input class="cy-mat-qty" placeholder="cant." oninput="cryCalc()"></div>
+    <div class="field" style="width:120px;margin:0"><input class="cy-mat-unit" placeholder="costo c/u" oninput="cryCalc()"></div>
+    <div style="min-width:110px;font-size:13px;color:var(--muted)">= <b class="cy-mat-sub" style="color:var(--text)">—</b></div>
+    <button class="btn-icon" title="Quitar material" onclick="cryDelMat(this)"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M6 18L18 6"/></svg></button>`;
+}
+function cryAddMat(name,qty,unit){
+  const row=document.createElement('div');
+  row.className='cy-mat-row';
+  row.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap';
+  row.innerHTML=matRowHtml();
+  $('cy-mats').appendChild(row);
+  const setv=(sel,v)=>{ if(v==null||v==='') return; row.querySelector(sel).value=(typeof v==='number')?fmt(v):v; };
+  setv('.cy-mat-name',name); setv('.cy-mat-qty',qty); setv('.cy-mat-unit',unit);
+  cryCalc();
+}
+function cryDelMat(btn){
+  const row=btn.closest('.cy-mat-row'); if(row) row.remove();
+  if(!document.querySelectorAll('#cy-mats .cy-mat-row').length) cryAddMat(); // siempre al menos una fila
+  cryCalc();
+}
+function readMats(){
+  return [...document.querySelectorAll('#cy-mats .cy-mat-row')].map(row=>({
+    name: row.querySelector('.cy-mat-name').value.trim(),
+    qty:  safeNum(row.querySelector('.cy-mat-qty').value),
+    unit: safeNum(row.querySelector('.cy-mat-unit').value),
+  }));
+}
+function matSub(m){ return m.unit>0 ? (m.qty>0?m.qty:1)*m.unit : 0; }   // cant. vacía = 1
+function matsCost(mats){ return mats.reduce((s,m)=>s+matSub(m),0); }
+
 function readCry(){
+  const mats=readMats();
   return {
-    item:$('cy-item').value.trim(),
-    cost:$('cy-cost').value, crystal:$('cy-crystal').value.trim(),
+    item:$('cy-item').value.trim(), mats, cost:matsCost(mats),
+    crystal:$('cy-crystal').value.trim(),
     qty:$('cy-qty').value, sell:$('cy-sell').value, fee:$('cy-fee').value,
   };
 }
 function cryCalc(){
-  const c=readCry(), r=calcCry({cost:c.cost,qty:c.qty,sell:c.sell,fee:c.fee});
+  // subtotales por material
+  document.querySelectorAll('#cy-mats .cy-mat-row').forEach(row=>{
+    const q=safeNum(row.querySelector('.cy-mat-qty').value), u=safeNum(row.querySelector('.cy-mat-unit').value);
+    const sub=matSub({qty:q,unit:u});
+    row.querySelector('.cy-mat-sub').textContent=sub>0?fmt(+sub.toFixed(1)):'—';
+  });
+  const c=readCry();
+  $('cy-cost-total').textContent=c.cost>0?fmt(+c.cost.toFixed(1)):'—';
+  const r=calcCry({cost:c.cost,qty:c.qty,sell:c.sell,fee:c.fee});
   const pos=r.profit>=0, col=pos?'var(--green2)':'var(--red2)';
   $('cy-costunit').textContent=r.costUnit?fmt(+r.costUnit.toFixed(1)):'—';
   $('cy-costunit-sub').textContent=safeNum(c.qty)>0?`${fmt(safeNum(c.qty))} cristal(es) por ítem`:'define la cantidad';
@@ -1347,12 +1403,13 @@ function cryCalc(){
   $('cy-income-sub').textContent=r.net?`venta neta ${fmt(+r.net.toFixed(1))}/cristal`:'';
   $('cy-profit').textContent=(pos?'+':'')+fmt(Math.round(r.profit));
   $('cy-profit').style.color=col;
-  $('cy-margin').textContent=r.margin!=null?`margen ${r.margin>=0?'+':''}${r.margin.toFixed(1)}%`:'ingresa costo y venta';
+  $('cy-margin').textContent=r.margin!=null?`margen ${r.margin>=0?'+':''}${r.margin.toFixed(1)}%`:'ingresa materiales y venta';
 }
 function cryClear(){
   editCry=null;
-  $('cy-item').value=''; $('cy-cost').value=''; $('cy-crystal').value='';
+  $('cy-item').value=''; $('cy-crystal').value='';
   $('cy-qty').value=''; $('cy-sell').value=''; $('cy-fee').value='0';
+  $('cy-mats').innerHTML=''; cryAddMat();          // arranca con una fila de material
   $('cry-save-btn').textContent='Guardar';
   $('cry-form-title').textContent='Ítem a cristalizar';
   cryCalc();
@@ -1361,9 +1418,11 @@ function crySave(){
   const c=readCry();
   if(!c.item) return toast('Ponle nombre al ítem');
   if(safeNum(c.qty)<=0) return toast('Define cuántos cristales da');
+  if(c.cost<=0) return toast('Agrega al menos un material con su costo');
   if(!settings.crystals) settings.crystals=[];
-  const rec={item:c.item,cost:safeNum(c.cost),crystal:c.crystal,
-             qty:safeNum(c.qty),sell:safeNum(c.sell),fee:safeNum(c.fee)};
+  const mats=c.mats.filter(m=>m.name||m.qty||m.unit);   // descarta filas vacías
+  const rec={item:c.item,cost:+c.cost.toFixed(2),crystal:c.crystal,
+             qty:safeNum(c.qty),sell:safeNum(c.sell),fee:safeNum(c.fee),mats};
   const now=nowMs();
   if(editCry==null){ settings.crystals.push({...rec,id:newId(),_m:now}); toast(`“${c.item}” guardado`); }
   else{ const e=byId(settings.crystals,editCry); if(e) Object.assign(e,rec,{archived:false,_m:now}); toast(`“${c.item}” actualizado`); }
@@ -1374,8 +1433,11 @@ function cryLoad(id){
   editCry=id;
   $('cry-form-title').textContent='Editando: '+r.item;
   $('cry-save-btn').textContent='Guardar cambios';
-  $('cy-item').value=r.item; $('cy-cost').value=fmt(r.cost); $('cy-crystal').value=r.crystal||'';
+  $('cy-item').value=r.item; $('cy-crystal').value=r.crystal||'';
   $('cy-qty').value=fmt(r.qty); $('cy-sell').value=fmt(r.sell); $('cy-fee').value=r.fee||0;
+  $('cy-mats').innerHTML='';
+  const mats=(r.mats&&r.mats.length)?r.mats:[{name:r.item,qty:1,unit:r.cost}];  // registros viejos: 1 material
+  mats.forEach(m=>cryAddMat(m.name||'', m.qty||'', m.unit||''));
   cryCalc(); window.scrollTo({top:document.getElementById('cry-form-title').offsetTop-40,behavior:'smooth'});
 }
 function cryArchive(id){
@@ -1403,7 +1465,7 @@ function renderCryList(){
     const best=pos===0&&c.profit>0;
     return `<tr class="${best?'best':''}">
       <td>${esc(r.item)}${best?'<span class="badge-best"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.5l7.1-.6z"/></svg>MÁS RENTABLE</span>':''}</td>
-      <td>${fmt(r.cost)}</td>
+      <td>${fmt(r.cost)}${r.mats&&r.mats.length>1?` <span style="color:var(--muted);font-size:11px">(${r.mats.length} mat.)</span>`:''}</td>
       <td>${esc(r.crystal||'—')} ×${fmt(r.qty)}</td>
       <td>${fmt(+c.costUnit.toFixed(1))}</td>
       <td>${fmt(r.sell)}</td>

@@ -1,4 +1,4 @@
 {
-  "version": "1.5.2",
-  "notes": "• Aviso visible para entrar con Google y sincronizar (ya no queda escondido en Configuración).\n• Tu sesión es permanente: entra una vez y no se cierra más (solo si le das Salir)."
+  "version": "1.5.3",
+  "notes": "• Cristalizar: ahora un ítem puede fabricarse con varios materiales (cada uno con su cantidad y costo) y el costo total se calcula solo.\n• Tus cristalizaciones anteriores se mantienen sin cambios."
 }
