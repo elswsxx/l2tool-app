@@ -1,4 +1,4 @@
 {
-  "version": "1.4.2",
-  "notes": "• Nueva sección \"Cristalizar ítems\" en Economía: calcula la rentabilidad de comprar un ítem, cristalizarlo y vender los cristales, y a cuánto te sale cada cristal.\n• Se guarda, sincroniza y archiva como las recetas."
+  "version": "1.4.3",
+  "notes": "• Economía ahora tiene sub-pestañas: \"Recetas de shots\" y \"Cristalizar ítems\", más ordenado.\n• En Cristalizar, \"Cristal que da\" es un desplegable (Cristal D, C, B, A, S)."
 }

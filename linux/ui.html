@@ -215,6 +215,14 @@
     font-size:14px;line-height:1;padding:2px 6px;border-radius:99px;opacity:.7;transition:all .15s}
   .calib-item button:hover{opacity:1;background:rgba(239,68,68,.2);color:var(--red2)}
 
+  /* sub-pestañas (segmentado) */
+  .subtabs{display:inline-flex;gap:4px;background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:4px;margin-bottom:18px}
+  .subtab{background:transparent;border:none;color:var(--muted);font-size:13.5px;font-weight:600;
+    padding:8px 18px;border-radius:9px;cursor:pointer;transition:all .15s}
+  .subtab:hover{color:var(--text)}
+  .subtab.active{background:linear-gradient(135deg,#1f3a5f,#356ea5);color:#fff}
+
   /* archivados */
   .archived-box{margin-top:14px}
   .arch-head{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;
@@ -404,10 +412,16 @@
   <!-- ============ ECONOMIA ============ -->
   <section class="page" id="page-eco">
     <div class="page-head">
-      <h2>Economía · Crafteo</h2>
-      <p>Calcula el costo real de craftear, tu utilidad y qué conviene fabricar a precios de hoy</p>
+      <h2>Economía</h2>
+      <p>Calcula qué conviene fabricar y cristalizar a precios de hoy</p>
     </div>
 
+    <div class="subtabs">
+      <button class="subtab active" id="ecosub-recetas" onclick="ecoTab('recetas')">Recetas de shots</button>
+      <button class="subtab" id="ecosub-cristalizar" onclick="ecoTab('cristalizar')">Cristalizar ítems</button>
+    </div>
+
+    <div id="eco-sub-recetas">
     <div class="card">
       <h3 id="eco-form-title">Receta</h3>
       <div class="form-grid" style="margin-bottom:12px">
@@ -464,10 +478,11 @@
       </div>
       <div id="eco-archived" class="archived-box"></div>
     </div>
+    </div><!-- /eco-sub-recetas -->
 
-    <div class="page-head" style="margin-top:8px">
-      <h2>Cristalizar ítems</h2>
-      <p>Compra un ítem, crístalizalo y vende los cristales: mira si conviene y a cuánto te sale cada cristal</p>
+    <div id="eco-sub-cristalizar" style="display:none">
+    <div class="card" style="margin-top:2px">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:0">Compra un ítem, crístalizalo y vende los cristales: mira si conviene y a cuánto te sale cada cristal.</p>
     </div>
 
     <div class="card">
@@ -475,7 +490,15 @@
       <div class="form-grid">
         <div class="field" style="flex:1;min-width:160px"><label>Ítem</label><input id="cy-item" placeholder="Ej: Elven Earring" oninput="cryCalc()"></div>
         <div class="field" style="width:150px"><label>Costo del ítem</label><input id="cy-cost" placeholder="95.268" oninput="cryCalc()"></div>
-        <div class="field" style="width:130px"><label>Cristal que da</label><input id="cy-crystal" placeholder="Cry D" oninput="cryCalc()"></div>
+        <div class="field" style="width:140px"><label>Cristal que da</label>
+          <select id="cy-crystal" onchange="cryCalc()">
+            <option value="Cristal D">Cristal D</option>
+            <option value="Cristal C">Cristal C</option>
+            <option value="Cristal B">Cristal B</option>
+            <option value="Cristal A">Cristal A</option>
+            <option value="Cristal S">Cristal S</option>
+          </select>
+        </div>
         <div class="field" style="width:130px"><label>Cantidad</label><input id="cy-qty" placeholder="169" oninput="cryCalc()"></div>
         <div class="field" style="width:150px"><label>Venta por cristal</label><input id="cy-sell" placeholder="564" oninput="cryCalc()"></div>
         <div class="field" style="width:120px"><label>Comisión %</label><input id="cy-fee" value="0" oninput="cryCalc()"></div>
@@ -509,6 +532,7 @@
       </div>
       <div id="cry-archived" class="archived-box"></div>
     </div>
+    </div><!-- /eco-sub-cristalizar -->
   </section>
 
   <!-- ============ CUENTAS ============ -->
@@ -1314,6 +1338,14 @@ function renderEcoList(){
 
 /* ================= cristalizar ================= */
 let editCry=null;
+
+function ecoTab(name){
+  const rec=name==='recetas';
+  $('eco-sub-recetas').style.display=rec?'':'none';
+  $('eco-sub-cristalizar').style.display=rec?'none':'';
+  $('ecosub-recetas').classList.toggle('active',rec);
+  $('ecosub-cristalizar').classList.toggle('active',!rec);
+}
 
 function calcCry(c){
   const cost=safeNum(c.cost), qty=safeNum(c.qty), sell=safeNum(c.sell), fee=safeNum(c.fee);

@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.4.2"
+APP_VERSION = "1.4.3"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
