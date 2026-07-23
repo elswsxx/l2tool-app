@@ -281,6 +281,21 @@
 
 <main class="main">
 
+  <!-- Aviso visible para iniciar sesión (solo si NO está logueado) -->
+  <div id="login-banner" style="display:none;margin-bottom:18px;padding:14px 16px;border-radius:14px;
+       background:linear-gradient(135deg,rgba(74,127,181,.18),rgba(74,127,181,.06));
+       border:1px solid rgba(74,127,181,.45);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:26px;height:26px;flex:none;color:var(--acc2,#5b8fc7)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zM16 11V7a4 4 0 00-8 0v4"/></svg>
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:700;font-size:14px;color:var(--text)">Entra con tu cuenta de Google para sincronizar</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Guarda tus spots, cuentas y recetas en la nube y tenlos en todas tus PC. Es gratis y toma 10 segundos.</div>
+    </div>
+    <button class="btn btn-primary" style="flex:none" onclick="loginGoogle()">
+      <svg viewBox="0 0 24 24" width="16" height="16" style="flex:none"><path fill="#fff" d="M12 11v3.6h5.1c-.2 1.3-1.6 3.9-5.1 3.9-3 0-5.5-2.5-5.5-5.5S9 7.5 12 7.5c1.7 0 2.9.7 3.6 1.4l2.5-2.4C16.5 4.9 14.5 4 12 4 7 4 3 8 3 13s4 9 9 9c5.2 0 8.6-3.6 8.6-8.7 0-.6-.1-1-.1-1.5H12z"/></svg>
+      Entrar con Google
+    </button>
+  </div>
+
   <!-- ============ CALCULADORA ============ -->
   <section class="page active" id="page-calc">
     <div class="page-head">
@@ -752,6 +767,7 @@ async function refreshAuthStatus(){
     const v=await api().app_version();
     $('ver-foot').textContent='v'+v; $('cfg-version').textContent=v;
     const dot=$('sync-dot'), title=$('sync-title'), sub=$('sync-sub');
+    const banner=$('login-banner');
     if(logged){
       dot.style.background='var(--green)';
       title.textContent='Conectado';
@@ -759,12 +775,14 @@ async function refreshAuthStatus(){
       $('cfg-login').style.display='none';
       $('cfg-sync').style.display=''; $('cfg-logout').style.display='';
       $('backup-foot').innerHTML=`Sincronizado en la nube<br><b style="color:var(--green2)">${esc(a.email||'tu cuenta')}</b>`;
+      if(banner) banner.style.display='none';
     }else{
       dot.style.background='var(--muted)';
       title.textContent='Sin conexión';
       sub.textContent='Entra con Google para sincronizar tus datos entre PC.';
       $('cfg-login').style.display=''; $('cfg-sync').style.display='none'; $('cfg-logout').style.display='none';
       $('backup-foot').innerHTML='Datos guardados<br>localmente';
+      if(banner) banner.style.display='flex';
     }
   }catch(e){}
 }

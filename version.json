@@ -1,4 +1,4 @@
 {
-  "version": "1.5.1",
-  "notes": "• Tu sesión ahora es permanente: entra una vez con Google y no se cierra más (solo si le das Salir).\n• Sincronización casi instantánea: los cambios de tus otras PC aparecen al volver a la app y cada 20 segundos."
+  "version": "1.5.2",
+  "notes": "• Aviso visible para entrar con Google y sincronizar (ya no queda escondido en Configuración).\n• Tu sesión es permanente: entra una vez y no se cierra más (solo si le das Salir)."
 }
