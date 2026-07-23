@@ -579,14 +579,12 @@
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" id="cfg-connect" onclick="connectDrive()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>Conectar mi Google Drive</button>
-        <button class="btn btn-ghost" id="cfg-backup" onclick="backupNow()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>Respaldar ahora</button>
-        <button class="btn btn-ghost" id="cfg-restore" onclick="restoreCloud()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M19 12l-7 7-7-7"/></svg>Restaurar desde la nube</button>
-        <button class="btn btn-ghost" id="cfg-disconnect" onclick="disconnectDrive()" style="display:none">Desconectar</button>
+        <button class="btn btn-primary" id="cfg-login" onclick="loginGoogle()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Entrar con Google</button>
+        <button class="btn btn-ghost" id="cfg-sync" onclick="syncNow()" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Sincronizar ahora</button>
+        <button class="btn btn-ghost" id="cfg-logout" onclick="logoutGoogle()" style="display:none">Salir</button>
       </div>
-      <div class="hint">Conecta <b>tu</b> cuenta de Google (permiso mínimo: la app solo ve sus propios archivos).
-        <b>Respaldar</b> sube tus datos; <b>Restaurar</b> los trae de la nube y reemplaza los locales
-        (útil al cambiar de PC). Se respalda solo al guardar y trae cambios de tus otras PC cada 5 minutos.</div>
+      <div class="hint">Entra con tu cuenta de Google: tus datos se guardan en el servidor, atados a tu cuenta,
+        y se sincronizan solos entre todas tus PC (al guardar y cada 5 minutos). Nada se pierde.</div>
     </div>
 
     <div class="card">
@@ -741,162 +739,108 @@ async function loadAll(){
   renderAccounts();
   renderEcoList();
   renderCryList();
-  refreshBackupStatus();
+  refreshAuthStatus();
   checkUpdates();
   startAutoSync();                                  // revisa cada 5 min
-  setTimeout(()=>mergeFromCloud(true), 3000);       // y trae cambios al abrir
+  setTimeout(()=>serverSync(true), 2500);           // y sincroniza al abrir
 }
 
-async function refreshBackupStatus(){
+async function refreshAuthStatus(){
   try{
-    const b=await api().backup_status();
-    const isGD=b&&b.kind==='Google Drive';
-    // sidebar
-    $('backup-foot').innerHTML=b&&b.kind
-      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;vertical-align:-1px"><path stroke-linecap="round" stroke-linejoin="round" d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg> Respaldo activo<br><b style="color:var(--green2)">${b.kind}</b>`
-      : `Sin respaldo en la nube`;
+    const a=await api().auth_status();
+    const logged=a&&a.logged;
     const v=await api().app_version();
-    $('ver-foot').textContent='v'+v;
-    $('cfg-version').textContent=v;
-    // panel de configuración
+    $('ver-foot').textContent='v'+v; $('cfg-version').textContent=v;
     const dot=$('sync-dot'), title=$('sync-title'), sub=$('sync-sub');
-    if(isGD){
+    if(logged){
       dot.style.background='var(--green)';
-      title.textContent='Google Drive conectado';
-      sub.textContent='Tus datos se respaldan automáticamente en tu cuenta · carpeta L2Toolkit Backup';
-      $('cfg-connect').style.display='none';
-      $('cfg-disconnect').style.display='';
-    }else if(b&&b.kind){
-      dot.style.background='#f59e0b';
-      title.textContent=`Respaldo local en ${b.kind}`;
-      sub.textContent='Conecta Google Drive para sincronizar en tu propia cuenta de Google.';
-      $('cfg-connect').style.display='';
-      $('cfg-disconnect').style.display='none';
+      title.textContent='Conectado';
+      sub.textContent=(a.email||'tu cuenta')+' · sincronización automática';
+      $('cfg-login').style.display='none';
+      $('cfg-sync').style.display=''; $('cfg-logout').style.display='';
+      $('backup-foot').innerHTML=`Sincronizado en la nube<br><b style="color:var(--green2)">${esc(a.email||'tu cuenta')}</b>`;
     }else{
-      dot.style.background='var(--red)';
-      title.textContent='Sin respaldo en la nube';
-      sub.textContent='Conecta tu Google Drive para no perder tus datos.';
-      $('cfg-connect').style.display='';
-      $('cfg-disconnect').style.display='none';
+      dot.style.background='var(--muted)';
+      title.textContent='Sin conexión';
+      sub.textContent='Entra con Google para sincronizar tus datos entre PC.';
+      $('cfg-login').style.display=''; $('cfg-sync').style.display='none'; $('cfg-logout').style.display='none';
+      $('backup-foot').innerHTML='Datos guardados<br>localmente';
     }
   }catch(e){}
 }
 
-async function connectDrive(){
-  const btn=$('cfg-connect');
-  btn.disabled=true;
-  const orig=btn.textContent;
-  btn.textContent='Autoriza en el navegador...';
-  toast('Se abrirá tu navegador: elige TU cuenta de Google y presiona Permitir');
+async function loginGoogle(){
+  const btn=$('cfg-login'); btn.disabled=true; const o=btn.innerHTML; btn.textContent='Abriendo navegador...';
+  toast('Se abrirá tu navegador: elige tu cuenta de Google');
   try{
-    const r=await api().connect_drive();
+    const r=await api().login_google();
     if(r&&r.ok){
-      if(r.pulled){
-        toast('Google Drive conectado. Traje tus datos de la nube.');
-        await loadAll();   // esta PC estaba vacía: recargar los datos traídos
-      }else{
-        toast('¡Google Drive conectado! Respaldo automático activo');
-      }
+      toast('¡Sesión iniciada como '+(r.email||'tu cuenta')+'!');
+      await refreshAuthStatus();
+      await serverSync(true);
     }else{
-      toast(''+((r&&r.error)||'No se pudo conectar'));
+      toast(''+((r&&r.error)||'No se pudo entrar'));
     }
-  }catch(e){ toast('Error al conectar'); }
-  btn.disabled=false;
-  btn.textContent=orig;
-  refreshBackupStatus();
+  }catch(e){ toast('Error en el login'); }
+  btn.disabled=false; btn.innerHTML=o;
+  refreshAuthStatus();
 }
 
-async function backupNow(){
-  const btn=$('cfg-backup'); btn.disabled=true; const o=btn.textContent; btn.textContent='Respaldando...';
-  try{
-    const r=await api().backup_now();
-    toast(r&&r.ok ? `Respaldado en ${r.kind}` : ''+((r&&r.error)||'No se pudo respaldar'));
-  }catch(e){ toast('Error al respaldar'); }
-  btn.disabled=false; btn.textContent=o;
-}
-
-function restoreCloud(){
-  modal('Sincronizar desde la nube',
-    'Elige cómo traer tus datos de Google Drive:\n\n• COMBINAR: une lo de la nube con lo que ya tienes en esta PC. No borra nada (recomendado).\n\n• REEMPLAZAR TODO: descarta lo local y deja exactamente lo de la nube (úsalo solo si esta PC tiene datos malos).',
+function logoutGoogle(){
+  modal('Salir de tu cuenta',
+    'Dejarás de sincronizar en esta PC. Tus datos locales y los del servidor NO se borran. ¿Salir?',
     [['Cancelar','btn-ghost',null],
-     ['Reemplazar todo','btn-ghost',doRestore],
-     ['Combinar','btn-primary',restoreMerge]]);
+     ['Salir','btn-danger',async()=>{
+        try{ await api().logout_google(); }catch(e){}
+        toast('Sesión cerrada'); refreshAuthStatus();
+     }]]);
 }
 
-/* firma del estado para detectar si un merge cambió algo (evita loops de sync) */
+/* firma del estado para detectar si la sync cambió algo */
 function stateSig(){
   const s=l=>(l||[]).map(x=>`${x.id}@${x._m||0}@${x.archived?1:0}`).sort().join(',');
   const ov=Object.keys(settings.lvlOverrides||{}).sort().map(k=>k+':'+settings.lvlOverrides[k]).join(',');
   return s(spots)+'||'+s(accounts)+'||'+s(settings.recipes||[])+'||'+s(settings.crystals||[])+'||'+ov;
 }
 
-/* núcleo: trae de la nube y fusiona por id. silent=true para el auto-sync. */
-async function mergeFromCloud(silent){
+/* sincroniza con TU servidor: sube lo local, recibe la unión y actualiza la UI */
+async function serverSync(silent){
   if(!api()) return false;
   let r;
-  try{ r=await api().fetch_cloud_data(); }
-  catch(e){ if(!silent) toast('Error al leer la nube'); return false; }
-  if(!r||!r.ok){ if(!silent) toast(''+((r&&r.error)||'No se pudo leer la nube')); return false; }
-  const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
-  ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC);
-  ensureIds(cset.recipes||[],KEY_REC); ensureIds(cset.crystals||[],KEY_CRY);
+  try{ r=await api().server_sync(); }
+  catch(e){ if(!silent) toast('Error de red'); return false; }
+  if(!r||!r.ok){
+    if(r&&r.error==='session-expired'){ toast('Tu sesión expiró, entra de nuevo'); refreshAuthStatus(); }
+    else if(r&&r.error==='no-session'){ if(!silent) toast('Entra con Google primero'); }
+    else if(!silent){ toast('No se pudo sincronizar'); }
+    return false;
+  }
+  const d=r.data||{};
   const before=stateSig();
-  spots=mergeById(spots,cs);
-  accounts=mergeById(accounts,ca);
-  settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
-  settings.recipes=mergeById(settings.recipes||[],cset.recipes||[]);
-  settings.crystals=mergeById(settings.crystals||[],cset.crystals||[]);
+  if(Array.isArray(d.spots)) spots=d.spots;
+  if(Array.isArray(d.accounts)) accounts=d.accounts;
+  if(d.settings&&typeof d.settings==='object') settings=d.settings;
   const changed=stateSig()!==before;
   if(changed){
-    saveSpots(); saveAccounts(); persistSettings();
+    if(settings.groupSpots!=null) $('group-toggle').checked=!!settings.groupSpots;
     renderSpots(); renderAccounts(); renderEcoList(); renderCryList(); calibRender(); lvlCalc();
   }
-  if(!silent) toast(changed?'Combinado con la nube':'Todo estaba al día');
+  if(!silent) toast(changed?'Sincronizado':'Todo al día');
   else if(changed) toast('Sincronizado con tus otras PC');
   return changed;
 }
 
-async function restoreMerge(){
-  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Combinando...';
-  await mergeFromCloud(false);
-  btn.disabled=false; btn.textContent=o;
+async function syncNow(){
+  const btn=$('cfg-sync'); btn.disabled=true; const o=btn.innerHTML; btn.textContent='Sincronizando...';
+  await serverSync(false);
+  btn.disabled=false; btn.innerHTML=o;
 }
 
-/* auto-sync: al abrir y cada 5 minutos, trae cambios de tus otras PC */
+/* auto-sync: al abrir y cada 5 minutos */
 let autoSyncInt=null;
 function startAutoSync(){
   clearInterval(autoSyncInt);
-  autoSyncInt=setInterval(()=>mergeFromCloud(true), 5*60*1000);
-}
-
-async function doRestore(){
-  modal('Reemplazar con lo de la nube',
-    'Se DESCARTARÁ todo lo que tienes en esta PC y quedará exactamente lo de la nube. ¿Seguro?',
-    [['Cancelar','btn-ghost',null],
-     ['Sí, reemplazar','btn-danger',doRestoreConfirmed]]);
-}
-async function doRestoreConfirmed(){
-  const btn=$('cfg-restore'); btn.disabled=true; const o=btn.textContent; btn.textContent='Restaurando...';
-  try{
-    const r=await api().restore_from_cloud();
-    if(r&&r.ok){
-      toast(`Datos reemplazados con los de ${r.kind}`);
-      await loadAll();
-    }else{
-      toast(''+((r&&r.error)||'No se pudo restaurar'));
-    }
-  }catch(e){ toast('Error al restaurar'); }
-  btn.disabled=false; btn.textContent=o;
-}
-
-function disconnectDrive(){
-  modal('Desconectar Google Drive',
-    'Se dejará de respaldar automáticamente. Tus datos locales y los ya subidos a tu Drive NO se borran. ¿Continuar?',
-    [['Cancelar','btn-ghost',null],
-     ['Desconectar','btn-danger',async()=>{
-        try{ await api().disconnect_drive(); toast('Google Drive desconectado'); }catch(e){}
-        refreshBackupStatus();
-     }]]);
+  autoSyncInt=setInterval(()=>serverSync(true), 5*60*1000);
 }
 
 async function manualCheckUpdate(){

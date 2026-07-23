@@ -16,13 +16,20 @@ import string
 import subprocess
 import sys
 import threading
+import urllib.error
+import urllib.parse
 import urllib.request
 import webbrowser
 
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.4.3"
+APP_VERSION = "1.5.0"
+
+# Servidor de sincronización propio (homelab, vía Cloudflare Tunnel).
+# Login con Google: la app solo usa el client_id; el servidor tiene el secreto.
+SERVER_URL = "https://l2toolkit-api.rhinlab.com"
+GOOGLE_CLIENT_ID = "101467236099-os04aj4mnh3f3tlsb8i51vf15ofhs4ah.apps.googleusercontent.com"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -64,6 +71,32 @@ def data_dir():
 SPOTS_FILE = os.path.join(data_dir(), "l2_spots.json")
 ACCOUNTS_FILE = os.path.join(data_dir(), "l2_accounts.json")
 SETTINGS_FILE = os.path.join(data_dir(), "l2_settings.json")
+AUTH_FILE = os.path.join(data_dir(), "l2_auth.json")  # sesión local, NO se sincroniza
+
+
+def _load_auth():
+    try:
+        with open(AUTH_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_auth(d):
+    try:
+        with open(AUTH_FILE, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+    except OSError:
+        pass
+
+
+def _gather_local():
+    s = _load(SETTINGS_FILE)
+    return {
+        "spots": _load(SPOTS_FILE),
+        "accounts": _load(ACCOUNTS_FILE),
+        "settings": s if isinstance(s, dict) else {},
+    }
 
 
 def resource_path(name):
@@ -367,20 +400,44 @@ def _sync_to_cloud():
             pass
 
 
+def _write_json(path, data):
+    """Escribe un archivo local sin re-disparar sincronización (evita loops)."""
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        _local_snapshot(path)
+    except OSError:
+        pass
+
+
+def _server_push():
+    """Sube lo local al servidor (fire-and-forget). El servidor guarda la unión."""
+    sess = _load_auth().get("session")
+    if not sess or _data_is_empty():
+        return
+    try:
+        body = json.dumps(_gather_local()).encode()
+        req = urllib.request.Request(
+            SERVER_URL + "/sync", data=body,
+            headers={"Content-Type": "application/json", "User-Agent": "L2Toolkit",
+                     "Authorization": "Bearer " + sess})
+        urllib.request.urlopen(req, timeout=30).close()
+    except Exception:
+        pass
+
+
 def _sync_worker():
     if not _sync_lock.acquire(blocking=False):
         return  # ya hay una sync corriendo; procesara lo pendiente
     try:
         while _sync_pending.is_set():
             _sync_pending.clear()
-            _sync_to_cloud()
+            _server_push()
     finally:
         _sync_lock.release()
 
 
 def _trigger_sync():
-    if _data_is_empty():
-        return
     _sync_pending.set()
     threading.Thread(target=_sync_worker, daemon=True).start()
 
@@ -581,61 +638,115 @@ class Api:
         except OSError:
             return False
 
-    def connect_drive(self):
-        """
-        Conecta el Google Drive DEL USUARIO. rclone ya viene con la app (lo pone
-        el instalador); si faltara, se descarga solo. Abre el navegador para que
-        el usuario autorice su cuenta (permiso mínimo drive.file).
-        """
-        exe = _ensure_rclone()
-        if not exe:
-            hint = ("No se pudo obtener rclone automáticamente." if IS_WINDOWS
-                    else "En Ubuntu: sudo apt install rclone")
-            return {"ok": False, "error": hint}
+    # ---- Sincronización con el servidor propio (login con Google) ---- #
+    def auth_status(self):
+        auth = _load_auth()
+        return {"logged": bool(auth.get("session")), "email": auth.get("email", "")}
 
-        # Paso 1: autorizar con NUESTRA pagina como respuesta del login
-        # (rclone authorize --template). El usuario ve una sola pagina, la bonita.
+    def logout_google(self):
+        _save_auth({})
+        return {"ok": True}
+
+    def login_google(self):
+        """
+        Login con Google por navegador del sistema (OAuth + PKCE). Abre el
+        navegador, el usuario elige su cuenta, y vuelve a NUESTRA página. El
+        código se canjea en NUESTRO servidor (que tiene el secreto) y este emite
+        una sesión que la app guarda localmente.
+        """
         import base64
-        blob = base64.b64encode(
-            json.dumps({"scope": "drive.file"}).encode()).decode().rstrip("=")
+        import hashlib
+        import http.server
+        import secrets
+        import time as _t
+
+        verifier = base64.urlsafe_b64encode(secrets.token_bytes(40)).rstrip(b"=").decode()
+        challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        state = secrets.token_urlsafe(16)
+        captured = {}
+        page = _SUCCESS_HTML.encode("utf-8")
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                if "code" in params or "error" in params:
+                    captured["code"] = params.get("code", [None])[0]
+                    captured["state"] = params.get("state", [None])[0]
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(page)
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
         try:
-            out = subprocess.run(
-                [exe, "authorize", "drive", blob, "--template", _auth_template_path()],
-                capture_output=True, text=True, timeout=300, creationflags=_NO_WINDOW,
-            )
-        except subprocess.TimeoutExpired:
-            return {"ok": False, "error": "Tiempo de espera agotado en la autorización"}
-        except (OSError, subprocess.SubprocessError):
-            return {"ok": False, "error": "No se pudo iniciar la autorización"}
+            httpd = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        except OSError:
+            return {"ok": False, "error": "No se pudo abrir el puerto local"}
+        redirect = f"http://127.0.0.1:{httpd.server_address[1]}"
+        auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
+            "client_id": GOOGLE_CLIENT_ID, "redirect_uri": redirect,
+            "response_type": "code", "scope": "openid email profile",
+            "code_challenge": challenge, "code_challenge_method": "S256",
+            "state": state, "prompt": "select_account",
+        })
+        webbrowser.open(auth_url)
 
-        # el token JSON viene en stdout entre los marcadores de rclone
-        import re
-        m = re.search(r"--->\s*(\{.*?\})\s*<---", out.stdout or "", re.S)
-        if not m:
-            m = re.search(r"(\{\"access_token\".*?\})", out.stdout or "", re.S)
-        if not m:
-            return {"ok": False, "error": "La autorización no se completó"}
-        token = m.group(1).strip()
+        httpd.timeout = 1
+        deadline = _t.time() + 300
+        while "state" not in captured and _t.time() < deadline:
+            httpd.handle_request()
+        httpd.server_close()
 
-        # Paso 2: crear el remoto con el token ya en mano (sin abrir nada mas)
+        if not captured.get("code") or captured.get("state") != state:
+            return {"ok": False, "error": "Login cancelado"}
+
         try:
-            subprocess.run(
-                [exe, "config", "create", RCLONE_REMOTE, "drive",
-                 "scope=drive.file", f"token={token}", "--non-interactive"],
-                capture_output=True, timeout=60, creationflags=_NO_WINDOW,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return {"ok": False, "error": "No se pudo guardar la configuración"}
+            body = json.dumps({"code": captured["code"], "code_verifier": verifier,
+                               "redirect_uri": redirect}).encode()
+            req = urllib.request.Request(
+                SERVER_URL + "/auth/google", data=body,
+                headers={"Content-Type": "application/json", "User-Agent": "L2Toolkit"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read())
+        except Exception:
+            return {"ok": False, "error": "No se pudo completar el login con el servidor"}
+        if not data.get("token"):
+            return {"ok": False, "error": "El servidor no devolvió sesión"}
+        _save_auth({"session": data["token"], "email": data.get("email", "")})
+        return {"ok": True, "email": data.get("email", "")}
 
-        _rclone_state["checked"] = False  # re-detectar
-        if rclone_ready():
-            if _data_is_empty():
-                # PC nueva sin datos: TRAE los de la nube (no subas vacio encima)
-                r = self.restore_from_cloud()
-                return {"ok": True, "pulled": bool(r.get("ok"))}
-            backup_all_now()
-            return {"ok": True, "pulled": False}
-        return {"ok": False, "error": "La autorización no se completó"}
+    def server_sync(self):
+        """Sube lo local al servidor, recibe la unión y la escribe localmente."""
+        sess = _load_auth().get("session")
+        if not sess:
+            return {"ok": False, "error": "no-session"}
+        try:
+            body = json.dumps(_gather_local()).encode()
+            req = urllib.request.Request(
+                SERVER_URL + "/sync", data=body,
+                headers={"Content-Type": "application/json", "User-Agent": "L2Toolkit",
+                         "Authorization": "Bearer " + sess})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                merged = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 401:
+                _save_auth({})
+                return {"ok": False, "error": "session-expired"}
+            return {"ok": False, "error": f"http-{e.code}"}
+        except Exception:
+            return {"ok": False, "error": "network"}
+        if isinstance(merged, dict):
+            _write_json(SPOTS_FILE, merged.get("spots", []))
+            _write_json(ACCOUNTS_FILE, merged.get("accounts", []))
+            s = merged.get("settings", {})
+            _write_json(SETTINGS_FILE, s if isinstance(s, dict) else {})
+        return {"ok": True, "data": merged}
 
     def check_update(self):
         """Compara la versión local con version.json del repo público."""

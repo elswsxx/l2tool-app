@@ -1,4 +1,4 @@
 {
-  "version": "1.4.3",
-  "notes": "• Economía ahora tiene sub-pestañas: \"Recetas de shots\" y \"Cristalizar ítems\", más ordenado.\n• En Cristalizar, \"Cristal que da\" es un desplegable (Cristal D, C, B, A, S)."
+  "version": "1.5.0",
+  "notes": "• Nueva sincronización: entra con tu cuenta de Google y tus datos se guardan y sincronizan solos en el servidor propio, entre todas tus PC.\n• Reemplaza el respaldo por Google Drive (se mantiene el historial local por seguridad)."
 }
