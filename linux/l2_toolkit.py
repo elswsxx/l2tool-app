@@ -22,7 +22,7 @@ import webbrowser
 import webview
 
 APP_TITLE = "L2 EXP Calculator"
-APP_VERSION = "1.4.1"
+APP_VERSION = "1.4.2"
 
 # Deteccion de sistema operativo
 IS_WINDOWS = sys.platform.startswith("win")
@@ -253,6 +253,10 @@ def _k_rec(r):
     return _join("rec", r.get("name"))
 
 
+def _k_cry(c):
+    return _join("cry", c.get("item"), c.get("crystal"), c.get("qty"))
+
+
 def _merge_items(local, cloud, keyfn):
     """
     Fusiona por id (o clave de contenido si es dato viejo sin id); para la misma
@@ -281,6 +285,8 @@ def _merge_settings(local, cloud):
     merged["lvlOverrides"] = ov
     merged["recipes"] = _merge_items(local.get("recipes", []),
                                      cloud.get("recipes", []), _k_rec)
+    merged["crystals"] = _merge_items(local.get("crystals", []),
+                                      cloud.get("crystals", []), _k_cry)
     return merged
 
 

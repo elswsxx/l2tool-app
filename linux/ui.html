@@ -464,6 +464,51 @@
       </div>
       <div id="eco-archived" class="archived-box"></div>
     </div>
+
+    <div class="page-head" style="margin-top:8px">
+      <h2>Cristalizar ítems</h2>
+      <p>Compra un ítem, crístalizalo y vende los cristales: mira si conviene y a cuánto te sale cada cristal</p>
+    </div>
+
+    <div class="card">
+      <h3 id="cry-form-title">Ítem a cristalizar</h3>
+      <div class="form-grid">
+        <div class="field" style="flex:1;min-width:160px"><label>Ítem</label><input id="cy-item" placeholder="Ej: Elven Earring" oninput="cryCalc()"></div>
+        <div class="field" style="width:150px"><label>Costo del ítem</label><input id="cy-cost" placeholder="95.268" oninput="cryCalc()"></div>
+        <div class="field" style="width:130px"><label>Cristal que da</label><input id="cy-crystal" placeholder="Cry D" oninput="cryCalc()"></div>
+        <div class="field" style="width:130px"><label>Cantidad</label><input id="cy-qty" placeholder="169" oninput="cryCalc()"></div>
+        <div class="field" style="width:150px"><label>Venta por cristal</label><input id="cy-sell" placeholder="564" oninput="cryCalc()"></div>
+        <div class="field" style="width:120px"><label>Comisión %</label><input id="cy-fee" value="0" oninput="cryCalc()"></div>
+        <button class="btn btn-primary" id="cry-save-btn" onclick="crySave()">Guardar</button>
+        <button class="btn btn-ghost" onclick="cryClear()">Nuevo</button>
+      </div>
+      <div class="hint">Si el ítem da más de un tipo de cristal, registra una fila por cada tipo.</div>
+    </div>
+
+    <div class="card">
+      <div class="lvl-result">
+        <div class="lvl-box"><div class="cap">Costo por cristal</div><div class="big" id="cy-costunit">—</div><div class="sub" id="cy-costunit-sub"></div></div>
+        <div class="lvl-box"><div class="cap">Ingreso por venta</div><div class="big" id="cy-income">—</div><div class="sub" id="cy-income-sub"></div></div>
+        <div class="lvl-box"><div class="cap">Utilidad</div><div class="big" id="cy-profit">—</div><div class="sub" id="cy-margin"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tus cristalizaciones · ordenadas por rentabilidad</h3>
+      <div class="table-wrap">
+        <table id="cry-table" style="min-width:820px">
+          <thead><tr>
+            <th style="text-align:left">Ítem</th><th>Costo ítem</th><th>Cristal</th>
+            <th>Costo/cristal</th><th>Venta/cristal</th><th>Utilidad</th><th>Margen</th><th></th>
+          </tr></thead>
+          <tbody id="cry-list"></tbody>
+        </table>
+        <div class="empty" id="cry-empty" style="display:none">
+          <h4>Sin cristalizaciones guardadas</h4><p>Configura una arriba y presiona "Guardar".</p>
+        </div>
+      </div>
+      <div id="cry-archived" class="archived-box"></div>
+    </div>
   </section>
 
   <!-- ============ CUENTAS ============ -->
@@ -584,6 +629,7 @@ function nowMs(){ return Date.now(); }
 const KEY_SPOT=s=>['spot',s.spot,s.party,s.minutes,s.exp,s.adena].join('|');
 const KEY_ACC =a=>['acc',a.alias,a.user,a.password].join('|');
 const KEY_REC =r=>['rec',r.name].join('|');
+const KEY_CRY =c=>['cry',c.item,c.crystal,c.qty].join('|');
 function ensureIds(list,keyfn){ let ch=false; (list||[]).forEach(x=>{ if(x&&!x.id){ x.id=keyfn?keyfn(x):newId(); ch=true; } if(x&&x._m==null){ x._m=1; ch=true; } }); return ch; }
 function byId(list,id){ return (list||[]).find(x=>x.id===id); }
 function itemKey(x){ return (x&&x.id)?x.id:JSON.stringify(x); }
@@ -649,7 +695,8 @@ async function loadAll(){
     settings=d.settings||{};
     // migracion: asignar id + fecha a lo que no lo tenga
     let mig=false;
-    mig=ensureIds(spots,KEY_SPOT)||mig; mig=ensureIds(accounts,KEY_ACC)||mig; mig=ensureIds(settings.recipes||[],KEY_REC)||mig;
+    mig=ensureIds(spots,KEY_SPOT)||mig; mig=ensureIds(accounts,KEY_ACC)||mig;
+    mig=ensureIds(settings.recipes||[],KEY_REC)||mig; mig=ensureIds(settings.crystals||[],KEY_CRY)||mig;
     const st=settings.lvlState;
     if(st){
       $('l-cur').value=st.cur; $('l-pct').value=st.pct; $('l-target').value=st.tgt;
@@ -669,6 +716,7 @@ async function loadAll(){
   renderSpots();
   renderAccounts();
   renderEcoList();
+  renderCryList();
   refreshBackupStatus();
   checkUpdates();
   startAutoSync();                                  // revisa cada 5 min
@@ -755,7 +803,7 @@ function restoreCloud(){
 function stateSig(){
   const s=l=>(l||[]).map(x=>`${x.id}@${x._m||0}@${x.archived?1:0}`).sort().join(',');
   const ov=Object.keys(settings.lvlOverrides||{}).sort().map(k=>k+':'+settings.lvlOverrides[k]).join(',');
-  return s(spots)+'||'+s(accounts)+'||'+s(settings.recipes||[])+'||'+ov;
+  return s(spots)+'||'+s(accounts)+'||'+s(settings.recipes||[])+'||'+s(settings.crystals||[])+'||'+ov;
 }
 
 /* núcleo: trae de la nube y fusiona por id. silent=true para el auto-sync. */
@@ -766,16 +814,18 @@ async function mergeFromCloud(silent){
   catch(e){ if(!silent) toast('Error al leer la nube'); return false; }
   if(!r||!r.ok){ if(!silent) toast(''+((r&&r.error)||'No se pudo leer la nube')); return false; }
   const cs=r.spots||[], ca=r.accounts||[], cset=r.settings||{};
-  ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC); ensureIds(cset.recipes||[],KEY_REC);
+  ensureIds(cs,KEY_SPOT); ensureIds(ca,KEY_ACC);
+  ensureIds(cset.recipes||[],KEY_REC); ensureIds(cset.crystals||[],KEY_CRY);
   const before=stateSig();
   spots=mergeById(spots,cs);
   accounts=mergeById(accounts,ca);
   settings.lvlOverrides={...(cset.lvlOverrides||{}), ...(settings.lvlOverrides||{})};
   settings.recipes=mergeById(settings.recipes||[],cset.recipes||[]);
+  settings.crystals=mergeById(settings.crystals||[],cset.crystals||[]);
   const changed=stateSig()!==before;
   if(changed){
     saveSpots(); saveAccounts(); persistSettings();
-    renderSpots(); renderAccounts(); renderEcoList(); calibRender(); lvlCalc();
+    renderSpots(); renderAccounts(); renderEcoList(); renderCryList(); calibRender(); lvlCalc();
   }
   if(!silent) toast(changed?'Combinado con la nube':'Todo estaba al día');
   else if(changed) toast('Sincronizado con tus otras PC');
@@ -1262,6 +1312,108 @@ function renderEcoList(){
   }).join('');
 }
 
+/* ================= cristalizar ================= */
+let editCry=null;
+
+function calcCry(c){
+  const cost=safeNum(c.cost), qty=safeNum(c.qty), sell=safeNum(c.sell), fee=safeNum(c.fee);
+  const costUnit=qty>0?cost/qty:0;                 // a cuánto te sale cada cristal
+  const net=sell*(1-fee/100);                       // venta neta por cristal
+  const income=net*qty;                             // ingreso total al vender
+  const profit=income-cost;                         // utilidad
+  const margin=cost>0?profit/cost*100:null;
+  return {costUnit,net,income,profit,margin};
+}
+function readCry(){
+  return {
+    item:$('cy-item').value.trim(),
+    cost:$('cy-cost').value, crystal:$('cy-crystal').value.trim(),
+    qty:$('cy-qty').value, sell:$('cy-sell').value, fee:$('cy-fee').value,
+  };
+}
+function cryCalc(){
+  const c=readCry(), r=calcCry({cost:c.cost,qty:c.qty,sell:c.sell,fee:c.fee});
+  const pos=r.profit>=0, col=pos?'var(--green2)':'var(--red2)';
+  $('cy-costunit').textContent=r.costUnit?fmt(+r.costUnit.toFixed(1)):'—';
+  $('cy-costunit-sub').textContent=safeNum(c.qty)>0?`${fmt(safeNum(c.qty))} cristal(es) por ítem`:'define la cantidad';
+  $('cy-income').textContent=r.income?fmt(Math.round(r.income)):'—';
+  $('cy-income-sub').textContent=r.net?`venta neta ${fmt(+r.net.toFixed(1))}/cristal`:'';
+  $('cy-profit').textContent=(pos?'+':'')+fmt(Math.round(r.profit));
+  $('cy-profit').style.color=col;
+  $('cy-margin').textContent=r.margin!=null?`margen ${r.margin>=0?'+':''}${r.margin.toFixed(1)}%`:'ingresa costo y venta';
+}
+function cryClear(){
+  editCry=null;
+  $('cy-item').value=''; $('cy-cost').value=''; $('cy-crystal').value='';
+  $('cy-qty').value=''; $('cy-sell').value=''; $('cy-fee').value='0';
+  $('cry-save-btn').textContent='Guardar';
+  $('cry-form-title').textContent='Ítem a cristalizar';
+  cryCalc();
+}
+function crySave(){
+  const c=readCry();
+  if(!c.item) return toast('Ponle nombre al ítem');
+  if(safeNum(c.qty)<=0) return toast('Define cuántos cristales da');
+  if(!settings.crystals) settings.crystals=[];
+  const rec={item:c.item,cost:safeNum(c.cost),crystal:c.crystal,
+             qty:safeNum(c.qty),sell:safeNum(c.sell),fee:safeNum(c.fee)};
+  const now=nowMs();
+  if(editCry==null){ settings.crystals.push({...rec,id:newId(),_m:now}); toast(`“${c.item}” guardado`); }
+  else{ const e=byId(settings.crystals,editCry); if(e) Object.assign(e,rec,{archived:false,_m:now}); toast(`“${c.item}” actualizado`); }
+  persistSettings(); cryClear(); renderCryList();
+}
+function cryLoad(id){
+  const r=byId(settings.crystals,id); if(!r) return;
+  editCry=id;
+  $('cry-form-title').textContent='Editando: '+r.item;
+  $('cry-save-btn').textContent='Guardar cambios';
+  $('cy-item').value=r.item; $('cy-cost').value=fmt(r.cost); $('cy-crystal').value=r.crystal||'';
+  $('cy-qty').value=fmt(r.qty); $('cy-sell').value=fmt(r.sell); $('cy-fee').value=r.fee||0;
+  cryCalc(); window.scrollTo({top:document.getElementById('cry-form-title').offsetTop-40,behavior:'smooth'});
+}
+function cryArchive(id){
+  const r=byId(settings.crystals,id); if(!r) return;
+  r.archived=true; r._m=nowMs();
+  persistSettings(); cryClear(); renderCryList(); toast(`“${r.item}” archivado`);
+}
+function cryRestore(id){
+  const r=byId(settings.crystals,id); if(!r) return;
+  r.archived=false; r._m=nowMs();
+  persistSettings(); renderCryList(); toast(`“${r.item}” restaurado`);
+}
+function renderCryList(){
+  const list=active(settings.crystals||[]);
+  const any=(settings.crystals||[]).length>0;
+  $('cry-empty').style.display=list.length?'none':(any?'none':'block');
+  $('cry-table').style.display=list.length?'table':'none';
+  renderArchived('cry-archived', archivedOf(settings.crystals||[]), 'cryRestore', r=>esc(r.item));
+  if(!list.length){ $('cry-list').innerHTML=''; return; }
+  const rows=list.map(r=>({r,c:calcCry(r)}));
+  rows.sort((a,b)=>(b.c.margin??-1e9)-(a.c.margin??-1e9));
+  $('cry-list').innerHTML=rows.map((x,pos)=>{
+    const {r,c}=x;
+    const col=c.profit>=0?'var(--green2)':'var(--red2)';
+    const best=pos===0&&c.profit>0;
+    return `<tr class="${best?'best':''}">
+      <td>${esc(r.item)}${best?'<span class="badge-best"><svg class="ico-star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.9 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.5l7.1-.6z"/></svg>MÁS RENTABLE</span>':''}</td>
+      <td>${fmt(r.cost)}</td>
+      <td>${esc(r.crystal||'—')} ×${fmt(r.qty)}</td>
+      <td>${fmt(+c.costUnit.toFixed(1))}</td>
+      <td>${fmt(r.sell)}</td>
+      <td style="color:${col};font-weight:700">${c.profit>=0?'+':''}${fmt(Math.round(c.profit))}</td>
+      <td style="color:${col}">${c.margin!=null?(c.margin>=0?'+':'')+c.margin.toFixed(1)+'%':'—'}</td>
+      <td><span style="display:inline-flex;gap:2px">
+        <button class="btn-icon" title="Editar" onclick="cryLoad('${r.id}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.4-9.4a2 2 0 112.8 2.8L11.8 15l-4 1 1-4 8.8-8.4z"/></svg>
+        </button>
+        <button class="btn-icon" title="Archivar" onclick="cryArchive('${r.id}')">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+        </button>
+      </span></td>
+    </tr>`;
+  }).join('');
+}
+
 /* ================= cuentas ================= */
 function accSubmit(){
   const alias=$('a-alias').value.trim(), user=$('a-user').value.trim(), pass=$('a-pass').value;
@@ -1502,6 +1654,8 @@ function lvlCalc(){
 calibRender();
 ecoClear();
 renderEcoList();
+cryClear();
+renderCryList();
 renderSpots();
 window.addEventListener('pywebviewready',loadAll);
 setTimeout(()=>{ if(!settingsLoaded&&api()) loadAll(); },800);

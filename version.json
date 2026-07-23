@@ -1,4 +1,4 @@
 {
-  "version": "1.4.1",
-  "notes": "• Al conectar Google Drive ahora ves UNA sola página, la de L2 Toolkit: la respuesta del login es directamente nuestra pantalla \"¡Conectado!\" (adiós a la página gris de rclone y a la pestaña extra)."
+  "version": "1.4.2",
+  "notes": "• Nueva sección \"Cristalizar ítems\" en Economía: calcula la rentabilidad de comprar un ítem, cristalizarlo y vender los cristales, y a cuánto te sale cada cristal.\n• Se guarda, sincroniza y archiva como las recetas."
 }
